@@ -906,11 +906,13 @@ function printA4() {
     .logo-img{width:44px;height:44px;object-fit:contain}
     .empresa-name{font-size:20px;font-weight:900;color:#1a1a2e}
     .empresa-sub{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:2px}
-    .hdr-right{display:flex;align-items:center;gap:10px}
+    .empresa-autor{font-size:8px;color:#bbb;margin-top:2px;font-style:italic}
+    .hdr-right{display:flex;align-items:center;gap:12px}
+    .emit{font-size:10px;color:#aaa;text-align:right;line-height:1.8}
+    .emit strong{color:#555;font-size:10px;font-weight:700}
     .filial-pill{background:#1a1a2e;color:white;padding:7px 20px;border-radius:6px;font-size:15px;font-weight:800;letter-spacing:.5px}
-    .emit{font-size:10px;color:#aaa;text-align:right;line-height:1.6}
 
-    /* BLOCOS PRINCIPAIS — crescem para preencher */
+    /* BLOCOS PRINCIPAIS */
     .main-blocks{display:flex;flex-direction:column;gap:3mm;flex:1;min-height:0}
     .info-block{
       padding:10px 18px;
@@ -923,31 +925,27 @@ function printA4() {
     .block-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:4px}
     .info-block.produto .block-label{color:#555}
     .info-block.lote    .block-label{color:#1a6aaa}
-    .block-value{font-weight:900;color:#1a1a2e;line-height:1.05;word-break:break-word;font-size:clamp(32px,5vw,64px)}
+    .block-value{font-weight:900;color:#1a1a2e;line-height:1.05;word-break:break-word;font-size:clamp(40px,5.5vw,80px)}
 
-    /* RODAPÉ — código | quantidade | validade */
+    /* BOTTOM ROW — código menor, validade destaque máximo */
     .bottom-row{
-      display:grid;grid-template-columns:1fr 1fr 2fr;gap:3mm;
+      display:grid;grid-template-columns:0.6fr 0.8fr 2.5fr;gap:3mm;
       flex-shrink:0;
     }
     .card{border-radius:8px;padding:8px 14px;display:flex;flex-direction:column;justify-content:center}
-    .card.codigo  {background:#f0f0f0;border:2px solid #ccc}
-    .card.qty     {background:#f5f5f5;border:2px solid #ddd}
+    .card.codigo  {background:#f0f0f0;border:1.5px solid #ddd}
+    .card.qty     {background:#f5f5f5;border:1.5px solid #e0e0e0}
     .card.validade{background:#fff8e1;border:3px solid #f0a000}
-    .card-lbl{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;font-weight:800;margin-bottom:3px}
-    .card.codigo  .card-lbl{color:#555}
-    .card.qty     .card-lbl{color:#444}
-    .card.validade .card-lbl{color:#b07800}
+    .card-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:800;margin-bottom:3px}
+    .card.codigo  .card-lbl{color:#aaa}
+    .card.qty     .card-lbl{color:#aaa}
+    .card.validade .card-lbl{color:#b07800;font-size:11px}
     .card-val{font-weight:900;color:#1a1a2e;line-height:1}
-    .card.codigo  .card-val{font-size:22px}
-    .card.qty     .card-val{font-size:28px}
-    .card.validade .card-val{font-size:52px;color:#b07800}
+    .card.codigo  .card-val{font-size:16px;color:#777}
+    .card.qty     .card-val{font-size:24px}
+    .card.validade .card-val{font-size:85px;color:#b07800}
     .card.validade .card-lbl::before{content:'⚠  '}
-    .val-sub{font-size:9px;color:#c08000;margin-top:2px;font-weight:600}
-
-    /* FOOTER */
-    .footer{border-top:1px solid #eee;padding-top:3mm;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#ccc;flex-shrink:0}
-    .footer-logo{width:18px;height:18px;object-fit:contain;opacity:.3}
+    .val-sub{font-size:9px;color:#c08000;margin-top:3px;font-weight:600}
 
     @media print{
       html,body{background:none;padding:0;margin:0}
@@ -962,10 +960,13 @@ function printA4() {
         <div>
           <div class="empresa-name">Reino Alimentos</div>
           <div class="empresa-sub">Separação de Expedição</div>
+          <div class="empresa-autor">Gustavo.Lima / Reino Alimentos</div>
         </div>
       </div>
       <div class="hdr-right">
-        <div class="emit">Emitido em<br>${now}</div>
+        <div class="emit">
+          Emitido em <strong>${now}</strong>
+        </div>
         <div class="filial-pill">${d.filial}</div>
       </div>
     </div>
@@ -997,12 +998,6 @@ function printA4() {
       </div>
     </div>
 
-    <div class="footer">
-      <img class="footer-logo" src="${LOGO_SRC}" alt="">
-      <span>EtiquetaPro — Reino Alimentos</span>
-      <span>${d.codigo} | Lote: ${d.lote} | ${d.filial}</span>
-    </div>
-
   </div>
   <script>window.onload=()=>{window.print()}<\/script>
   </body></html>`;
@@ -1010,6 +1005,7 @@ function printA4() {
   win.document.close();
   showToast('🖨 Abrindo impressão A4 Paisagem...');
 }
+
 
 function printLabel() {
   const d = getFormData();
