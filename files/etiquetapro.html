@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#0e0e12">
 <meta name="description" content="EtiquetaPro — Sistema de Etiquetagem Reino Alimentos">
 <title>EtiquetaPro — Reino Alimentos</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" id="pwa-manifest">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -401,8 +401,8 @@ select option{background:var(--surface2)}
 
 <!-- PWA INSTALL PROMPT -->
 <div class="install-prompt" id="install-prompt">
-  <div>📱</div>
-  <p><strong>Instalar EtiquetaPro</strong>Adicione à tela inicial para usar como app</p>
+  <div>🏷</div>
+  <p><strong>Instalar EtiquetaPro</strong>Use como app — sem navegador, funciona offline</p>
   <button class="btn-install" id="btn-install-pwa">Instalar</button>
   <button class="btn-install-dismiss" onclick="dismissInstall()">✕</button>
 </div>
@@ -423,6 +423,7 @@ select option{background:var(--surface2)}
       <div class="pa-dot" id="pa-dot"></div>
       <span class="pa-label" id="pa-label">Power Automate</span>
     </div>
+    <button class="btn-settings" title="Instalar como App" onclick="showInstallPrompt()" style="font-size:16px">📲</button>
     <button class="btn-settings" onclick="openSettings()">⚙️</button>
   </div>
 </header>
@@ -637,31 +638,88 @@ let logData = [];
 // ═══════════════════════════════════════
 //  PWA — Service Worker + Install
 // ═══════════════════════════════════════
+// ── PWA: MANIFEST E SERVICE WORKER INLINE ───────────────────────────
+(function() {
+  // Manifest inline via Blob
+  const manifest = {
+    name: "EtiquetaPro — Reino Alimentos",
+    short_name: "EtiquetaPro",
+    description: "Sistema de Etiquetagem Reino Alimentos",
+    start_url: "./",
+    display: "standalone",
+    background_color: "#0e0e12",
+    theme_color: "#0e0e12",
+    orientation: "any",
+    icons: [
+      { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%230e0e12'/><text x='50%' y='58%' font-size='110' text-anchor='middle' dominant-baseline='middle' fill='white'>🏷</text></svg>", sizes: "192x192", type: "image/svg+xml" },
+      { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%230e0e12'/><text x='50%' y='58%' font-size='300' text-anchor='middle' dominant-baseline='middle' fill='white'>🏷</text></svg>", sizes: "512x512", type: "image/svg+xml" }
+    ]
+  };
+  const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+  const manifestURL = URL.createObjectURL(manifestBlob);
+  document.getElementById('pwa-manifest').href = manifestURL;
+
+  // Service Worker inline via Blob
+  const swCode = `
+    const CACHE = 'etiquetapro-v1';
+    self.addEventListener('install', e => {
+      self.skipWaiting();
+    });
+    self.addEventListener('activate', e => {
+      e.waitUntil(clients.claim());
+    });
+    self.addEventListener('fetch', e => {
+      e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    });
+  `;
+  if ('serviceWorker' in navigator) {
+    const swBlob = new Blob([swCode], {type: 'application/javascript'});
+    const swURL = URL.createObjectURL(swBlob);
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register(swURL, {scope: './'}).catch(() => {});
+    });
+  }
+})();
+
 let deferredPrompt = null;
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
-}
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-  const isMobile = window.innerWidth <= 768;
-  if (isMobile && !localStorage.getItem('pwa_dismissed')) {
-    setTimeout(() => document.getElementById('install-prompt').classList.add('show'), 2000);
+  if (!localStorage.getItem('pwa_dismissed')) {
+    setTimeout(() => document.getElementById('install-prompt').classList.add('show'), 1500);
   }
 });
-document.getElementById('btn-install-pwa').addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
-  deferredPrompt = null;
+window.addEventListener('appinstalled', () => {
   document.getElementById('install-prompt').classList.remove('show');
+  deferredPrompt = null;
+  showToast('✅ EtiquetaPro instalado com sucesso!', '#3dd68c');
+});
+document.getElementById('btn-install-pwa').addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    document.getElementById('install-prompt').classList.remove('show');
+  } else {
+    // Fallback: instrução manual
+    showToast('👆 No Chrome: menu (⋮) → "Instalar aplicativo"', '#0078d4');
+    document.getElementById('install-prompt').classList.remove('show');
+  }
 });
 function dismissInstall() {
   document.getElementById('install-prompt').classList.remove('show');
   localStorage.setItem('pwa_dismissed','1');
 }
+// Botão manual para forçar mostrar o prompt novamente
+function showInstallPrompt() {
+  localStorage.removeItem('pwa_dismissed');
+  if (deferredPrompt) {
+    document.getElementById('install-prompt').classList.add('show');
+  } else {
+    showToast('💡 Para instalar: abra no Chrome → menu (⋮) → "Instalar aplicativo" ou "Adicionar à tela inicial"', '#0078d4');
+  }
+}
+// ─────────────────────────────────────────────────────────────────────
 window.addEventListener('online',  () => document.getElementById('offline-banner').classList.remove('show'));
 window.addEventListener('offline', () => document.getElementById('offline-banner').classList.add('show'));
 
