@@ -1008,23 +1008,34 @@ async function saveRecord() {
   const serie = peekSerie();
   const payload = { Produto:d.descricao, Codigo:d.codigo, Lote:d.lote, Validade:d.validade, Quantidade:d.quantidade, DestinoCaminhao:d.filial, Serie:serie };
   try {
-    await fetch(paUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ filial: currentFilial || '—', job: 'A4', printer: localStorage.getItem('printer_a4_name') || '', payload }) });
+    const autoPrintA4 = localStorage.getItem('autoprint_a4') === '1';
+    const autoPrintQR  = localStorage.getItem('autoprint_qr')  === '1';
+    const printerA4  = localStorage.getItem('printer_a4_name') || '';
+    const printerQR  = localStorage.getItem('printer_qr_name') || '';
+    const filial = currentFilial || '—';
+
+    // Envia job A4 se marcado
+    if (autoPrintA4 && printerA4) {
+      await fetch(paUrl, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ filial, job:'A4', printer:printerA4, payload }) });
+    }
+    // Envia job QR se marcado
+    if (autoPrintQR && printerQR) {
+      await fetch(paUrl, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ filial, job:'QR', printer:printerQR, payload }) });
+    }
+    // Se nenhum auto-print marcado, salva só como registro A4
+    if (!autoPrintA4 && !autoPrintQR) {
+      await fetch(paUrl, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ filial, job:'A4', printer:printerA4, payload }) });
+    }
+
     getNextSerie();
     d.serie = serie; d.timestamp = new Date().toLocaleString('pt-BR');
     logData.push({...d}); renderLog();
     document.getElementById('pa-dot').className = 'pa-dot on';
     showToast(`✅ Enviado ao SharePoint — Série #${serie}`, '#3dd68c');
     generateQR(d, peekSerie());
-    // AUTO-PRINT
-    const autoPrintA4 = localStorage.getItem('autoprint_a4') === '1';
-    const autoPrintQR = localStorage.getItem('autoprint_qr') === '1';
-    if (autoPrintA4 && autoPrintQR) {
-      setTimeout(() => { printA4(); setTimeout(() => printLabel(), 800); }, 400);
-    } else if (autoPrintA4) {
-      setTimeout(() => printA4(), 400);
-    } else if (autoPrintQR) {
-      setTimeout(() => printLabel(), 400);
-    }
   } catch(e) {
     document.getElementById('pa-dot').className = 'pa-dot err';
     showToast('❌ Erro ao enviar: ' + e.message, '#e05a2b');
