@@ -1009,7 +1009,7 @@ async function saveRecord() {
   const serie = peekSerie();
   const payload = { Produto:d.descricao, Codigo:d.codigo, Lote:d.lote, Validade:d.validade, Quantidade:d.quantidade, DestinoCaminhao:d.filial, Serie:serie };
   try {
-    await fetch(paUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload) });
+    await fetch(paUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ filial: currentFilial || '—', job: 'A4', printer: localStorage.getItem('printer_a4_name') || '', payload }) });
     getNextSerie();
     d.serie = serie; d.timestamp = new Date().toLocaleString('pt-BR');
     logData.push({...d}); renderLog();
