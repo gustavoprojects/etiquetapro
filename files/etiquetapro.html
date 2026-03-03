@@ -786,6 +786,48 @@ refreshSerieDisplay();
 const PA_URL_DEFAULT = 'https://default6142e716d6e94577a712609139a997.3f.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2eee4ff43ecf4712869385ad148aff95/triggers/manual/paths/invoke?api-version=1';
 let paUrl = localStorage.getItem('rk_pa_url') || PA_URL_DEFAULT;
 
+// ═══════════════════════════════════════
+//  IMPRESSÃO SILENCIOSA — PRINT WEBHOOK
+// ═══════════════════════════════════════
+const PA_URL_PRINT = 'https://default6142e716d6e94577a712609139a997.3f.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/362ffbefb6e74d23bb3207fadc05b80c/triggers/manual/paths/invoke?api-version=1';
+
+async function sendPrintJob(job) {
+  const printer = job === 'A4'
+    ? (localStorage.getItem('printer_a4_name') || '')
+    : (localStorage.getItem('printer_qr_name') || '');
+
+  if (!printer) {
+    showToast('⚠ Configure a impressora primeiro!', '#e05a2b');
+    return;
+  }
+
+  const d      = getFormData();
+  const serie  = peekSerie();
+  const filial = currentFilial || '—';
+
+  const payload = {
+    Codigo:          d.codigo        || '—',
+    Produto:         d.descricao     || '—',
+    Lote:            d.lote          || '—',
+    Validade:        d.validade      || '—',
+    Quantidade:      d.quantidade    || '1',
+    DestinoCaminhao: filial,
+    Serie:           serie
+  };
+
+  try {
+    await fetch(PA_URL_PRINT, {
+      method:  'POST',
+      mode:    'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ filial, job, printer, payload })
+    });
+    showToast(`✅ Impressão ${job} enviada → ${printer}`, '#3dd68c');
+  } catch (e) {
+    showToast('❌ Erro ao enviar impressão: ' + e.message, '#e05a2b');
+  }
+}
+
 function openSettings() {
   document.getElementById('cfg-pa-url').value = paUrl;
   document.getElementById('modal-overlay').classList.add('open');
@@ -1317,17 +1359,16 @@ function confirmPrinterSetup() {
   loadPrinterLabels();
   const type = _printerPendingType;
   closePrinterModal();
-  if (type === 'a4') { printA4(); }
-  else               { printLabel(); }
+  // Dispara impressão silenciosa após configurar
+  if (type === 'a4') { sendPrintJob('A4'); }
+  else               { sendPrintJob('QR'); }
 }
 
 function smartPrintA4() {
   if (!localStorage.getItem('printer_a4_configured')) {
     openPrinterModal('a4', false);
   } else {
-    const name = localStorage.getItem('printer_a4_name') || '';
-    showToast(`🖨 Imprimindo A4 → ${name}`);
-    printA4();
+    sendPrintJob('A4');
   }
 }
 
@@ -1335,9 +1376,7 @@ function smartPrintQR() {
   if (!localStorage.getItem('printer_qr_configured')) {
     openPrinterModal('qr', false);
   } else {
-    const name = localStorage.getItem('printer_qr_name') || '';
-    showToast(`🏷 Imprimindo QR → ${name}`);
-    printLabel();
+    sendPrintJob('QR');
   }
 }
 
