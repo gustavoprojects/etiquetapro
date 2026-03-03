@@ -818,7 +818,6 @@ async function sendPrintJob(job) {
   try {
     await fetch(PA_URL_PRINT, {
       method:  'POST',
-      mode:    'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ filial, job, printer, payload })
     });
@@ -866,7 +865,7 @@ async function testWebhook() {
   btn.textContent = '⏳';
   try {
     await fetch(url, {
-      method:'POST', mode:'no-cors',
+      method:'POST',
       headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({Produto:'TESTE',Codigo:'PA000000',Lote:'TESTE',Validade:'01/26',Quantidade:'1',DestinoCaminhao:'TESTE',Serie:'000000'})
     });
