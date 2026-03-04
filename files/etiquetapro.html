@@ -20,6 +20,12 @@
   --success:#3dd68c; --pa:#0078d4; --radius:10px;
   --header-h: 58px;
 }
+html[data-theme="light"] {
+  --bg:#f4f4f8; --surface:#ffffff; --surface2:#ebebf2; --border:#d0d0de;
+  --accent:#b07800; --accent2:#e05a2b; --text:#1a1a2e; --muted:#888899;
+  --success:#1da868; --pa:#0060c0; --radius:10px;
+  --header-h: 58px;
+}
 
 *{box-sizing:border-box;margin:0;padding:0}
 html{height:100%}
@@ -424,6 +430,7 @@ select option{background:var(--surface2)}
       <span class="pa-label" id="pa-label">Power Automate</span>
     </div>
     <button class="btn-settings" title="Instalar como App" onclick="showInstallPrompt()" style="font-size:16px">📲</button>
+    <button class="btn-settings btn-theme" id="btn-theme" onclick="toggleTheme()" title="Alternar modo claro/escuro">🌙</button>
     <button class="btn-settings" onclick="openSettings()">⚙️</button>
   </div>
 </header>
@@ -818,6 +825,7 @@ async function sendPrintJob(job) {
   try {
     await fetch(PA_URL_PRINT, {
       method:  'POST',
+      mode:    'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ filial, job, printer, payload })
     });
@@ -865,7 +873,7 @@ async function testWebhook() {
   btn.textContent = '⏳';
   try {
     await fetch(url, {
-      method:'POST',
+      method:'POST', mode:'no-cors',
       headers:{'Content-Type':'text/plain'},
       body: JSON.stringify({Produto:'TESTE',Codigo:'PA000000',Lote:'TESTE',Validade:'01/26',Quantidade:'1',DestinoCaminhao:'TESTE',Serie:'000000'})
     });
@@ -1008,34 +1016,23 @@ async function saveRecord() {
   const serie = peekSerie();
   const payload = { Produto:d.descricao, Codigo:d.codigo, Lote:d.lote, Validade:d.validade, Quantidade:d.quantidade, DestinoCaminhao:d.filial, Serie:serie };
   try {
-    const autoPrintA4 = localStorage.getItem('autoprint_a4') === '1';
-    const autoPrintQR  = localStorage.getItem('autoprint_qr')  === '1';
-    const printerA4  = localStorage.getItem('printer_a4_name') || '';
-    const printerQR  = localStorage.getItem('printer_qr_name') || '';
-    const filial = currentFilial || '—';
-
-    // Envia job A4 se marcado
-    if (autoPrintA4 && printerA4) {
-      await fetch(paUrl, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ filial, job:'A4', printer:printerA4, payload }) });
-    }
-    // Envia job QR se marcado
-    if (autoPrintQR && printerQR) {
-      await fetch(paUrl, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ filial, job:'QR', printer:printerQR, payload }) });
-    }
-    // Se nenhum auto-print marcado, salva só como registro A4
-    if (!autoPrintA4 && !autoPrintQR) {
-      await fetch(paUrl, { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ filial, job:'A4', printer:printerA4, payload }) });
-    }
-
+    await fetch(paUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload) });
     getNextSerie();
     d.serie = serie; d.timestamp = new Date().toLocaleString('pt-BR');
     logData.push({...d}); renderLog();
     document.getElementById('pa-dot').className = 'pa-dot on';
     showToast(`✅ Enviado ao SharePoint — Série #${serie}`, '#3dd68c');
     generateQR(d, peekSerie());
+    // AUTO-PRINT
+    const autoPrintA4 = localStorage.getItem('autoprint_a4') === '1';
+    const autoPrintQR = localStorage.getItem('autoprint_qr') === '1';
+    if (autoPrintA4 && autoPrintQR) {
+      setTimeout(() => { printA4(); setTimeout(() => printLabel(), 800); }, 400);
+    } else if (autoPrintA4) {
+      setTimeout(() => printA4(), 400);
+    } else if (autoPrintQR) {
+      setTimeout(() => printLabel(), 400);
+    }
   } catch(e) {
     document.getElementById('pa-dot').className = 'pa-dot err';
     showToast('❌ Erro ao enviar: ' + e.message, '#e05a2b');
@@ -1416,6 +1413,28 @@ function showToast(msg, color='#3dd68c') {
 }
 
 updatePreview();
+
+// ═══════════════════════════════════════
+// TEMA CLARO / ESCURO
+// ═══════════════════════════════════════
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-theme') !== 'light';
+  const newTheme = isDark ? 'light' : 'dark';
+  html.setAttribute('data-theme', newTheme);
+  document.getElementById('btn-theme').textContent = isDark ? '☀️' : '🌙';
+  localStorage.setItem('epro-theme', newTheme);
+}
+
+function applyTheme() {
+  const saved = localStorage.getItem('epro-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  const btn = document.getElementById('btn-theme');
+  if (btn) btn.textContent = saved === 'light' ? '☀️' : '🌙';
+}
+
+applyTheme();
+
 </script>
 <!-- IFRAMES OCULTOS PARA IMPRESSÃO SEM POPUP -->
 <iframe id="print-frame-a4" style="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none"></iframe>
