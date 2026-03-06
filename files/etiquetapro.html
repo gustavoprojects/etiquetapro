@@ -1006,7 +1006,9 @@ function buildPABody(job, printer, d, serie) {
       Validade:        d.validade   || '—',
       Quantidade:      d.quantidade || '1',
       DestinoCaminhao: filial,
-      Serie:           String(serie)
+      Serie:           String(serie),
+      Usuario:         currentSession ? currentSession.nome  : '—',
+      Turno:           currentSession ? currentSession.turno : '—'
     }
   });
 }
@@ -1275,11 +1277,8 @@ async function saveRecord() {
   const serie = peekSerie();
 
   try {
-    // 1. Grava em Separação_Exp — payload PLANO (formato que o fluxo espera)
-    await paFetch(paUrl, buildSeparacaoBody(d, serie));
-
-    // 2. Envia para FilaImpressao (IMPRIMIR_STAFONSO) se impressoras configuradas
-    await registrarFilaImpressao(d, serie);
+    // Envia job=SAVE → PA grava em Separação_Exp + FilaImpressao (status Pendente)
+    await paFetch(paUrl, buildPABody('SAVE', '', d, serie));
 
     getNextSerie();
     d.serie = serie; d.timestamp = new Date().toLocaleString('pt-BR');
@@ -1373,6 +1372,7 @@ function printA4() {
           <div class="empresa-name">Reino Alimentos</div>
           <div class="empresa-sub">Separação de Expedição</div>
           <div class="empresa-autor">Gustavo.Lima / Reino Alimentos</div>
+
         </div>
       </div>
       <div class="hdr-right">
