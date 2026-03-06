@@ -418,6 +418,7 @@ select option{background:var(--surface2)}
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" style="width:auto;padding:10px 20px" onclick="closeSettings()">Cancelar</button>
+      <button class="btn btn-secondary" style="width:auto;padding:10px 20px;border-color:#f0a000;color:#f0a000" onclick="testConnection()">🔌 Testar</button>
       <button class="btn btn-pa" style="width:auto;padding:10px 20px" onclick="saveSettings()">💾 Salvar</button>
     </div>
   </div>
@@ -981,53 +982,93 @@ refreshSerieDisplay();
 // ═══════════════════════════════════════
 //  CONFIG POWER AUTOMATE
 // ═══════════════════════════════════════
-const PA_URL_DEFAULT = 'https://default6142e716d6e94577a712609139a997.3f.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/362ffbefb6e74d23bb3207fadc05b80c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=807nodsZ-_YUT58Nlnnfu24FZcwMgJVpE2xMoJbV0VQ';
-let paUrl = localStorage.getItem('rk_pa_url') || PA_URL_DEFAULT;
+//  POWER AUTOMATE — IMPRIMIR_STAFONSO
+//  Um único fluxo grava em ambas as listas:
+//  FilaImpressao (job=A4/QR) + Separação_Exp (job=SAVE)
+//  Formato: { filial, job, printer, payload:{...} }
+// ═══════════════════════════════════════
 
-// ═══════════════════════════════════════
-//  IMPRESSÃO SILENCIOSA — PRINT WEBHOOK
-// ═══════════════════════════════════════
 const PA_URL_PRINT = 'https://default6142e716d6e94577a712609139a997.3f.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/362ffbefb6e74d23bb3207fadc05b80c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=807nodsZ-_YUT58Nlnnfu24FZcwMgJVpE2xMoJbV0VQ';
+let paUrl = localStorage.getItem('rk_pa_url') || PA_URL_PRINT;
 
+// Helper: monta body no formato esperado pelo fluxo IMPRIMIR_STAFONSO
+// job = 'SAVE' → apenas registrar | 'A4' → imprimir A4 | 'QR' → imprimir etiqueta
+function buildPABody(job, printer, d, serie) {
+  const filial = currentFilial || d.filial || '—';
+  return JSON.stringify({
+    filial,
+    job:     job     || 'SAVE',
+    printer: printer || '',
+    payload: {
+      Codigo:          d.codigo     || '—',
+      Produto:         d.descricao  || '—',
+      Lote:            d.lote       || '—',
+      Validade:        d.validade   || '—',
+      Quantidade:      d.quantidade || '1',
+      DestinoCaminhao: filial,
+      Serie:           String(serie)
+    }
+  });
+}
+
+// Alias para saveRecord — usa job=SAVE (só registrar, sem impressão automática)
+function buildSeparacaoBody(d, serie) {
+  return buildPABody('SAVE', '', d, serie);
+}
+
+async function paFetch(url, body) {
+  // no-cors + text/plain: PA sem schema aceita qualquer body
+  // e usa json(triggerBody()) internamente para parsear
+  return fetch(url, {
+    method:  'POST',
+    mode:    'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body
+  });
+}
 async function sendPrintJob(job) {
   const printer = job === 'A4'
     ? (localStorage.getItem('printer_a4_name') || '')
     : (localStorage.getItem('printer_qr_name') || '');
 
   if (!printer) {
-    showToast('⚠ Configure a impressora primeiro!', '#e05a2b');
+    showToast('⚠ Configure a impressora nas ⚙️ Configurações primeiro!', '#e05a2b');
+    openSettings();
     return;
   }
 
   const d      = getFormData();
   const serie  = peekSerie();
-  const filial = currentFilial || '—';
-
-  const payload = {
-    Codigo:          d.codigo        || '—',
-    Produto:         d.descricao     || '—',
-    Lote:            d.lote          || '—',
-    Validade:        d.validade      || '—',
-    Quantidade:      d.quantidade    || '1',
-    DestinoCaminhao: filial,
-    Serie:           serie
-  };
-
   try {
-    await fetch(PA_URL_PRINT, {
-      method:  'POST',
-      mode:    'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ filial, job, printer, payload })
-    });
+    await paFetch(PA_URL_PRINT, buildPABody(job, printer, d, serie));
     showToast(`✅ Impressão ${job} enviada → ${printer}`, '#3dd68c');
   } catch (e) {
     showToast('❌ Erro ao enviar impressão: ' + e.message, '#e05a2b');
   }
 }
 
+// Registra job na FilaImpressao (monitor de impressão) junto ao salvar
+async function registrarFilaImpressao(d, serie) {
+  const printerA4 = localStorage.getItem('printer_a4_name') || '';
+  const printerQR = localStorage.getItem('printer_qr_name') || '';
+  const autoPrintA4 = localStorage.getItem('autoprint_a4') === '1';
+  const autoPrintQR = localStorage.getItem('autoprint_qr') === '1';
+
+  if (autoPrintA4 && printerA4) {
+    try { await paFetch(PA_URL_PRINT, buildPABody('A4', printerA4, d, serie)); } catch(e) { console.warn('Erro fila A4:', e); }
+  }
+  if (autoPrintQR && printerQR) {
+    try { await paFetch(PA_URL_PRINT, buildPABody('QR', printerQR, d, serie)); } catch(e) { console.warn('Erro fila QR:', e); }
+  }
+}
+
 function openSettings() {
   document.getElementById('cfg-pa-url').value = paUrl;
+  // Indica se a URL vem do localStorage ou do código
+  const saved = localStorage.getItem('rk_pa_url');
+  const src = saved ? '🟢 URL salva nas configurações desta máquina' : '🟡 Usando URL padrão do código (não personalizada)';
+  const sub = document.querySelector('#modal-overlay .modal .sub');
+  if (sub) sub.textContent = src;
   const isAdmin = currentSession && currentSession.role === 'admin';
   const adminSec = document.getElementById('admin-users-section');
   if (adminSec) { adminSec.style.display = isAdmin ? '' : 'none'; if (isAdmin) renderAdminUsers(); }
@@ -1043,6 +1084,28 @@ function saveSettings() {
   updatePaStatusUI();
   closeSettings();
   showToast(val ? '✅ URL salva!' : '⚠ URL removida', val ? '#3dd68c' : '#f0a000');
+}
+
+async function testConnection() {
+  const url = document.getElementById('cfg-pa-url').value.trim();
+  if (!url) { showToast('⚠ Cole a URL antes de testar', '#f0a000'); return; }
+  const btn = document.querySelector('[onclick="testConnection()"]');
+  btn.textContent = '⏳ Testando...'; btn.disabled = true;
+  try {
+    // Envia payload de teste com campo Test=true — o fluxo pode ignorar
+    await fetch(url, {
+      method:  'POST',
+      mode:    'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ Test: true, Produto: 'TESTE_CONEXAO', Codigo: '000', Lote: 'T0', Validade: '00/00', Quantidade: '0', DestinoCaminhao: 'TESTE', Serie: '0' })
+    });
+    // no-cors sempre resolve sem erro de rede — confirma que a URL foi alcançada
+    showToast('✅ URL alcançada com sucesso! Verifique o histórico do fluxo no Power Automate para confirmar recebimento.', '#3dd68c');
+  } catch(e) {
+    showToast('❌ Erro de rede: ' + e.message + ' — Verifique se há internet ou se a URL está correta.', '#e05a2b');
+  } finally {
+    btn.textContent = '🔌 Testar'; btn.disabled = false;
+  }
 }
 document.getElementById('modal-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('modal-overlay')) closeSettings();
@@ -1065,19 +1128,20 @@ async function testWebhook() {
   if (!url) { showToast('⚠ Cole a URL primeiro!', '#e05a2b'); return; }
   const btn = document.querySelector('.btn-test');
   btn.textContent = '⏳';
+  const testData = { codigo:'TST000', descricao:'PRODUTO TESTE', lote:'L0001', validade:'12/26', quantidade:'1', filial: currentFilial||'ST.AFONSO' };
   try {
     await fetch(url, {
       method:'POST', mode:'no-cors',
       headers:{'Content-Type':'text/plain'},
-      body: JSON.stringify({Produto:'TESTE',Codigo:'PA000000',Lote:'TESTE',Validade:'01/26',Quantidade:'1',DestinoCaminhao:'TESTE',Serie:'000000'})
+      body: buildSeparacaoBody({ codigo:'TST000', descricao:'PRODUTO TESTE', lote:'L0001', validade:'12/26', quantidade:'1', filial: currentFilial||'ST.AFONSO' }, '9999')
     });
     btn.textContent = '✓'; btn.style.color = '#3dd68c';
-    showToast('✅ Enviado! Verifique a lista no SharePoint.','#3dd68c');
+    showToast('✅ Enviado! Verifique a lista Separação_Exp no SharePoint — deve aparecer "PRODUTO TESTE".','#3dd68c');
   } catch(e) {
     btn.textContent = '✗'; btn.style.color = '#e05a2b';
-    showToast('❌ Erro: ' + e.message, '#e05a2b');
+    showToast('❌ Erro de rede: ' + e.message, '#e05a2b');
   }
-  setTimeout(() => { btn.textContent = 'Testar'; btn.style.color = ''; }, 3000);
+  setTimeout(() => { btn.textContent = 'Testar'; btn.style.color = ''; }, 4000);
 }
 
 // ═══════════════════════════════════════
@@ -1209,9 +1273,14 @@ async function saveRecord() {
   const btn = document.getElementById('btn-save');
   btn.disabled = true; btn.innerHTML = '⏳ Enviando para SharePoint...';
   const serie = peekSerie();
-  const payload = { Produto:d.descricao, Codigo:d.codigo, Lote:d.lote, Validade:d.validade, Quantidade:d.quantidade, DestinoCaminhao:d.filial, Serie:serie };
+
   try {
-    await fetch(paUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload) });
+    // 1. Grava em Separação_Exp — payload PLANO (formato que o fluxo espera)
+    await paFetch(paUrl, buildSeparacaoBody(d, serie));
+
+    // 2. Envia para FilaImpressao (IMPRIMIR_STAFONSO) se impressoras configuradas
+    await registrarFilaImpressao(d, serie);
+
     getNextSerie();
     d.serie = serie; d.timestamp = new Date().toLocaleString('pt-BR');
     d.usuario = currentSession ? currentSession.nome : 'Desconhecido';
@@ -1220,16 +1289,6 @@ async function saveRecord() {
     document.getElementById('pa-dot').className = 'pa-dot on';
     showToast(`✅ Enviado ao SharePoint — Série #${serie}`, '#3dd68c');
     generateQR(d, peekSerie());
-    // AUTO-PRINT
-    const autoPrintA4 = localStorage.getItem('autoprint_a4') === '1';
-    const autoPrintQR = localStorage.getItem('autoprint_qr') === '1';
-    if (autoPrintA4 && autoPrintQR) {
-      setTimeout(() => { printA4(); setTimeout(() => printLabel(), 800); }, 400);
-    } else if (autoPrintA4) {
-      setTimeout(() => printA4(), 400);
-    } else if (autoPrintQR) {
-      setTimeout(() => printLabel(), 400);
-    }
   } catch(e) {
     document.getElementById('pa-dot').className = 'pa-dot err';
     showToast('❌ Erro ao enviar: ' + e.message, '#e05a2b');
