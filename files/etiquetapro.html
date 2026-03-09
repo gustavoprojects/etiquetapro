@@ -1277,8 +1277,11 @@ async function saveRecord() {
   const serie = peekSerie();
 
   try {
-    // Envia job=SAVE → PA grava em Separação_Exp + FilaImpressao (status Pendente)
+    // Envia job=SAVE → PA grava em Separação_Exp (condição no fluxo PA)
     await paFetch(paUrl, buildPABody('SAVE', '', d, serie));
+
+    // Se auto-impressão ativa, envia jobs A4/QR para FilaImpressao
+    await registrarFilaImpressao(d, serie);
 
     getNextSerie();
     d.serie = serie; d.timestamp = new Date().toLocaleString('pt-BR');
