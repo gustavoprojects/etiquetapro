@@ -6239,7 +6239,8 @@ async function loadUsersFromCloud() {
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
-    _usersCache = data.users || DEFAULT_USERS;
+    const record = data.record || data;  // JSONBin v3 pode encapsular em .record
+    _usersCache = record.users || DEFAULT_USERS;
     // Salva cópia local como fallback offline
     localStorage.setItem('epro-users', JSON.stringify(_usersCache));
   } catch(e) {
@@ -6317,7 +6318,8 @@ async function pullUsersFromCloud() {
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
-    _usersCache = data.users || DEFAULT_USERS;
+    const record = data.record || data;  // JSONBin v3 pode encapsular em .record
+    _usersCache = record.users || DEFAULT_USERS;
     localStorage.setItem('epro-users', JSON.stringify(_usersCache));
     status.innerHTML = `✅ ${_usersCache.length} usuário(s) carregado(s) da nuvem!`;
     status.style.color = '#2ecc71';
@@ -6341,7 +6343,8 @@ async function testJsonBinConfig() {
     });
     if (r.ok) {
       const d = await r.json();
-      const qtd = d.users ? d.users.length : '?';
+      const rec = d.record || d;
+      const qtd = rec.users ? rec.users.length : '?';
       status.innerHTML = `✅ Conexão OK! ${qtd} usuário(s) encontrado(s) na nuvem.`;
       status.style.color = '#2ecc71';
     } else {
