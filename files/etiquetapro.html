@@ -6234,7 +6234,7 @@ async function loadUsersFromCloud() {
     return;
   }
   try {
-    const r = await fetch(JSONBIN_URL() + '/latest', {
+    const r = await fetch(JSONBIN_URL(), {
       headers: { 'X-Master-Key': getJBKey(), 'X-Bin-Meta': 'false' }
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -6313,7 +6313,7 @@ async function pullUsersFromCloud() {
   const status = document.getElementById('jb-status');
   status.textContent = '⏳ Buscando usuários da nuvem...';
   try {
-    const r = await fetch(JSONBIN_URL() + '/latest', {
+    const r = await fetch(JSONBIN_URL(), {
       headers: { 'X-Master-Key': getJBKey(), 'X-Bin-Meta': 'false' }
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -6338,7 +6338,7 @@ async function testJsonBinConfig() {
   if (!key || !bin) { status.textContent = '⚠ Configure a Master Key e o Bin ID primeiro.'; return; }
   status.textContent = '⏳ Testando conexão...';
   try {
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${bin}/latest`, {
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${bin}`, {
       headers: { 'X-Master-Key': key, 'X-Bin-Meta': 'false' }
     });
     if (r.ok) {
