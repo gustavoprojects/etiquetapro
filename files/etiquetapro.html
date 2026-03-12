@@ -6717,7 +6717,7 @@ function filterProducts(val) {
     dd.classList.add('show'); return;
   }
   dd.innerHTML = m.map(p => {
-    const s = p.descricao.replace(/'/g,"\'").replace(/"/g,'&quot;');
+    const s = p.descricao.replace(/'/g,"&#39;").replace(/"/g,'&quot;');
     return `<div class="dropdown-item" onmousedown="selectProduct('${p.codigo}','${s}')">
       <span class="di-desc">${p.descricao}</span><span class="di-code">${p.codigo}</span></div>`;
   }).join('');
@@ -6748,7 +6748,7 @@ function filterClientes(val) {
   }
   dd.innerHTML = m.map(cl => {
     const display = cl.c + '-' + cl.n;
-    const safe = display.replace(/'/g,'`').replace(/"/g,'&quot;');
+    const safe = display.replace(/'/g,"&#39;").replace(/"/g,'&quot;');
     return `<div class="dropdown-item" onmousedown="selectCliente('${safe}')">
       <span class="di-cod" style="color:var(--accent);font-size:10px;margin-right:6px">${cl.c}</span><span class="di-desc">${cl.n}</span></div>`;
   }).join('');
