@@ -6371,12 +6371,22 @@ function selectTurno(t){
   document.getElementById('tb-noturno').classList.toggle('active', t==='Noturno');
 }
 
-function doLogin(){
+async function doLogin(){
   const login = document.getElementById('login-user').value.trim();
   const pass  = document.getElementById('login-pass').value;
   const err   = document.getElementById('login-err');
   if(!login||!pass){ err.textContent='Preencha usuário e senha.'; return; }
   if(!selectedTurno){ err.textContent='Selecione o turno.'; return; }
+
+  // Sempre busca da nuvem antes de validar — garante usuários atualizados
+  const btn = document.getElementById('btn-login-action');
+  const loading = document.getElementById('login-loading');
+  if(btn) btn.disabled = true;
+  if(loading){ loading.textContent='⏳ Verificando credenciais...'; loading.style.display=''; }
+  await loadUsersFromCloud();
+  if(btn) btn.disabled = false;
+  if(loading) loading.style.display='none';
+
   const users = getUsers();
   const u = users.find(u=>u.login===login && u.pass===pass);
   if(!u){ err.textContent='Usuário ou senha incorretos.'; return; }
