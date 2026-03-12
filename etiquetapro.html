@@ -6199,9 +6199,9 @@ let currentFilial = '';
 // │  CONFIGURAÇÃO JSONBIN — preencha após criar a conta │
 // │  https://jsonbin.io → Account → API Keys            │
 // └─────────────────────────────────────────────────────┘
-const JSONBIN_KEY    = localStorage.getItem('epro-jb-key')    || '';
-const JSONBIN_BIN_ID = localStorage.getItem('epro-jb-bin')    || '';
-const JSONBIN_URL    = () => `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+const getJBKey  = () => localStorage.getItem('epro-jb-key')  || '';
+const getJBBin  = () => localStorage.getItem('epro-jb-bin')  || '';
+const JSONBIN_URL = () => `https://api.jsonbin.io/v3/b/${getJBBin()}`;
 
 const DEFAULT_USERS = [
   { login:'admin',   pass:'reino2025', nome:'Administrador',  role:'admin' },
@@ -6212,14 +6212,14 @@ let _usersCache = null;   // cache em memória — não depende de localStorage
 
 // Carrega usuários da nuvem (chamado no boot do app)
 async function loadUsersFromCloud() {
-  if (!JSONBIN_KEY || !JSONBIN_BIN_ID) {
+  if (!getJBKey() || !getJBBin()) {
     // JSONBin não configurado — usa localStorage como antes
     _usersCache = JSON.parse(localStorage.getItem('epro-users') || 'null') || DEFAULT_USERS;
     return;
   }
   try {
     const r = await fetch(JSONBIN_URL() + '/latest', {
-      headers: { 'X-Master-Key': JSONBIN_KEY, 'X-Bin-Meta': 'false' }
+      headers: { 'X-Master-Key': getJBKey(), 'X-Bin-Meta': 'false' }
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
@@ -6237,13 +6237,13 @@ async function loadUsersFromCloud() {
 async function saveUsers(u) {
   _usersCache = u;
   localStorage.setItem('epro-users', JSON.stringify(u));   // fallback offline
-  if (!JSONBIN_KEY || !JSONBIN_BIN_ID) return;
+  if (!getJBKey() || !getJBBin()) return;
   try {
     const r = await fetch(JSONBIN_URL(), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'X-Master-Key': JSONBIN_KEY
+        'X-Master-Key': getJBKey()
       },
       body: JSON.stringify({ users: u })
     });
@@ -6257,19 +6257,23 @@ function getUsers() { return _usersCache || DEFAULT_USERS; }
 
 
 // ── Configuração JSONBin (admin) ──────────────────────────────────────────
-function saveJsonBinConfig() {
+async function saveJsonBinConfig() {
   const key = document.getElementById('jb-key-input').value.trim();
   const bin = document.getElementById('jb-bin-input').value.trim();
   if (!key || !bin) { showToast('Preencha a Master Key e o Bin ID.', '#e05a2b'); return; }
   localStorage.setItem('epro-jb-key', key);
   localStorage.setItem('epro-jb-bin', bin);
-  document.getElementById('jb-status').textContent = '✅ Configuração salva. Recarregue o app para sincronizar.';
-  showToast('✅ Configuração salva! Recarregue o app.');
+  document.getElementById('jb-status').textContent = '⏳ Sincronizando usuários da nuvem...';
+  showToast('✅ Configuração salva! Sincronizando...');
+  await loadUsersFromCloud();
+  renderAdminUsers();
+  document.getElementById('jb-status').textContent = '🟢 Nuvem configurada — usuários sincronizados!';
+  showToast('✅ Usuários carregados da nuvem!');
 }
 
 async function testJsonBinConfig() {
-  const key = document.getElementById('jb-key-input').value.trim() || localStorage.getItem('epro-jb-key') || '';
-  const bin = document.getElementById('jb-bin-input').value.trim() || localStorage.getItem('epro-jb-bin') || '';
+  const key = document.getElementById('jb-key-input').value.trim() || getJBKey();
+  const bin = document.getElementById('jb-bin-input').value.trim() || getJBBin();
   const status = document.getElementById('jb-status');
   if (!key || !bin) { status.textContent = '⚠ Configure a Master Key e o Bin ID primeiro.'; return; }
   status.textContent = '⏳ Testando conexão...';
