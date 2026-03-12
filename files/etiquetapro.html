@@ -389,22 +389,13 @@ select option{background:var(--surface2)}
     </div>
     <!-- ADMIN: Gestão de Usuários -->
     <div id="admin-jsonbin-section" class="admin-section" style="display:none;margin-bottom:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
-      <div class="section-title" style="margin-bottom:10px">☁️ Configuração da Nuvem (JSONBin)</div>
+      <div class="section-title" style="margin-bottom:8px">☁️ Sincronização de Usuários</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-        Guarde usuários na nuvem. Após salvar, qualquer aparelho acessa os mesmos usuários.<br>
-        Crie sua conta grátis em <strong>jsonbin.io</strong> → gere a <strong>Master Key</strong> e crie um <strong>Bin</strong>.
+        Usuários armazenados na nuvem — acessíveis em qualquer aparelho automaticamente.
       </div>
-      <div class="field-group" style="margin-bottom:8px">
-        <label>Master Key (X-Master-Key)</label>
-        <input type="password" id="jb-key-input" placeholder="$2b$10$..." style="font-family:monospace;font-size:11px">
-      </div>
-      <div class="field-group" style="margin-bottom:8px">
-        <label>Bin ID</label>
-        <input type="text" id="jb-bin-input" placeholder="6507a1234abc..." style="font-family:monospace;font-size:11px">
-      </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn-action" style="flex:1;padding:8px" onclick="saveJsonBinConfig()">💾 Salvar configuração</button>
-        <button class="btn-action" style="flex:1;padding:8px;background:#2e86d4" onclick="testJsonBinConfig()">🔗 Testar conexão</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-action" style="flex:1;padding:8px;background:#27ae60;min-width:120px" onclick="pushLocalUsersToCloud()">☁️ Forçar envio → nuvem</button>
+        <button class="btn-action" style="flex:1;padding:8px;background:#2e86d4;min-width:120px" onclick="pullUsersFromCloud()">⬇️ Recarregar da nuvem</button>
       </div>
       <div id="jb-status" style="font-size:11px;margin-top:8px;color:var(--muted)"></div>
     </div>
@@ -470,6 +461,28 @@ select option{background:var(--surface2)}
     </div>
     <button class="btn-login" id="btn-login-action" onclick="doLogin()">Entrar →</button>
       <div id="login-loading" style="display:none;text-align:center;color:var(--muted);font-size:12px;margin-top:8px">⏳ Carregando usuários da nuvem...</div>
+      <div style="text-align:center;margin-top:12px">
+        <span style="font-size:11px;color:var(--muted)">Novo usuário? </span>
+        <button onclick="showRegister()" style="background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer;text-decoration:underline">Solicitar acesso</button>
+      </div>
+
+      <!-- Formulário de cadastro (oculto inicialmente) -->
+      <div id="register-form" style="display:none;margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text)">🔐 Solicitar Acesso</div>
+        <input type="text" id="reg-nome" placeholder="Nome completo" maxlength="40"
+          style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box">
+        <input type="text" id="reg-login" placeholder="Login (sem espaços)" maxlength="20"
+          style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box">
+        <input type="password" id="reg-pass" placeholder="Senha" maxlength="20"
+          style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box">
+        <input type="password" id="reg-pass2" placeholder="Confirmar senha" maxlength="20"
+          style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;margin-bottom:8px;box-sizing:border-box">
+        <div id="reg-err" style="color:#e05a2b;font-size:11px;margin-bottom:8px;min-height:16px"></div>
+        <div style="display:flex;gap:8px">
+          <button onclick="hideRegister()" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:12px">Cancelar</button>
+          <button onclick="doRegister()" id="btn-register" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-size:13px">Cadastrar</button>
+        </div>
+      </div>
     <div class="login-err" id="login-err"></div>
   </div>
 </div>
@@ -6199,8 +6212,11 @@ let currentFilial = '';
 // │  CONFIGURAÇÃO JSONBIN — preencha após criar a conta │
 // │  https://jsonbin.io → Account → API Keys            │
 // └─────────────────────────────────────────────────────┘
-const getJBKey  = () => localStorage.getItem('epro-jb-key')  || '';
-const getJBBin  = () => localStorage.getItem('epro-jb-bin')  || '';
+// ── Credenciais JSONBin embutidas (sem config por aparelho) ──
+const _JB_KEY = '$2a$10$vQmCpMMNKfwruKusNdp3wut0Ar.btwLS8T1mAfUy95.Zd6O35PpN2';
+const _JB_BIN = '69b2addec3097a1dd51c1832';
+const getJBKey  = () => _JB_KEY;
+const getJBBin  = () => _JB_BIN;
 const JSONBIN_URL = () => `https://api.jsonbin.io/v3/b/${getJBBin()}`;
 
 const DEFAULT_USERS = [
@@ -6258,22 +6274,64 @@ function getUsers() { return _usersCache || DEFAULT_USERS; }
 
 // ── Configuração JSONBin (admin) ──────────────────────────────────────────
 async function saveJsonBinConfig() {
-  const key = document.getElementById('jb-key-input').value.trim();
-  const bin = document.getElementById('jb-bin-input').value.trim();
-  if (!key || !bin) { showToast('Preencha a Master Key e o Bin ID.', '#e05a2b'); return; }
-  localStorage.setItem('epro-jb-key', key);
-  localStorage.setItem('epro-jb-bin', bin);
-  document.getElementById('jb-status').textContent = '⏳ Sincronizando usuários da nuvem...';
-  showToast('✅ Configuração salva! Sincronizando...');
-  await loadUsersFromCloud();
-  renderAdminUsers();
-  document.getElementById('jb-status').textContent = '🟢 Nuvem configurada — usuários sincronizados!';
-  showToast('✅ Usuários carregados da nuvem!');
+  // Credenciais embutidas — sem necessidade de configuração manual
+  showToast('✅ Nuvem configurada automaticamente!');
+}
+
+// Envia usuários do localStorage → JSONBin (nuvem)
+async function pushLocalUsersToCloud() {
+  if (!getJBKey() || !getJBBin()) {
+    showToast('⚠ Configure a Master Key e o Bin ID primeiro.', '#e05a2b'); return;
+  }
+  const status = document.getElementById('jb-status');
+  const localUsers = JSON.parse(localStorage.getItem('epro-users') || 'null') || DEFAULT_USERS;
+  status.textContent = '⏳ Enviando usuários para a nuvem...';
+  try {
+    const r = await fetch(JSONBIN_URL(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Master-Key': getJBKey() },
+      body: JSON.stringify({ users: localUsers })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _usersCache = localUsers;
+    status.innerHTML = `✅ ${localUsers.length} usuário(s) enviado(s) para a nuvem com sucesso!`;
+    status.style.color = '#2ecc71';
+    showToast(`✅ ${localUsers.length} usuário(s) sincronizado(s) na nuvem!`);
+    renderAdminUsers();
+  } catch(e) {
+    status.textContent = '❌ Erro ao enviar: ' + e.message;
+    status.style.color = '#e05a2b';
+  }
+}
+
+// Busca usuários da nuvem → atualiza aparelho atual
+async function pullUsersFromCloud() {
+  if (!getJBKey() || !getJBBin()) {
+    showToast('⚠ Configure a Master Key e o Bin ID primeiro.', '#e05a2b'); return;
+  }
+  const status = document.getElementById('jb-status');
+  status.textContent = '⏳ Buscando usuários da nuvem...';
+  try {
+    const r = await fetch(JSONBIN_URL() + '/latest', {
+      headers: { 'X-Master-Key': getJBKey(), 'X-Bin-Meta': 'false' }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    _usersCache = data.users || DEFAULT_USERS;
+    localStorage.setItem('epro-users', JSON.stringify(_usersCache));
+    status.innerHTML = `✅ ${_usersCache.length} usuário(s) carregado(s) da nuvem!`;
+    status.style.color = '#2ecc71';
+    showToast(`✅ ${_usersCache.length} usuário(s) atualizados da nuvem!`);
+    renderAdminUsers();
+  } catch(e) {
+    status.textContent = '❌ Erro ao buscar: ' + e.message;
+    status.style.color = '#e05a2b';
+  }
 }
 
 async function testJsonBinConfig() {
-  const key = document.getElementById('jb-key-input').value.trim() || getJBKey();
-  const bin = document.getElementById('jb-bin-input').value.trim() || getJBBin();
+  const key = getJBKey();
+  const bin = getJBBin();
   const status = document.getElementById('jb-status');
   if (!key || !bin) { status.textContent = '⚠ Configure a Master Key e o Bin ID primeiro.'; return; }
   status.textContent = '⏳ Testando conexão...';
@@ -6297,15 +6355,8 @@ async function testJsonBinConfig() {
 }
 
 function loadJsonBinConfigUI() {
-  const k = localStorage.getItem('epro-jb-key') || '';
-  const b = localStorage.getItem('epro-jb-bin') || '';
-  const ki = document.getElementById('jb-key-input');
-  const bi = document.getElementById('jb-bin-input');
-  if (ki && k) ki.value = k;
-  if (bi && b) bi.value = b;
-  document.getElementById('jb-status').textContent = k && b
-    ? '🟢 Nuvem configurada — usuários sincronizados via JSONBin.'
-    : '🔴 Nuvem não configurada — usando armazenamento local.';
+  const st = document.getElementById('jb-status');
+  if (st) st.textContent = '🟢 Nuvem ativa — usuários sincronizados automaticamente.';
 }
 
 let currentSession = null;  // { login, nome, role, turno }
@@ -7284,6 +7335,60 @@ document.getElementById('printer-name-input').addEventListener('keydown', e => {
 loadPrinterLabels();
 updateAutoPrintStatus();
 // ─────────────────────────────────────────────────────────────────────
+
+
+// ── Auto-cadastro na tela de login ────────────────────────────────────────
+function showRegister() {
+  document.getElementById('register-form').style.display = '';
+  document.getElementById('reg-err').textContent = '';
+  document.getElementById('reg-nome').focus();
+}
+function hideRegister() {
+  document.getElementById('register-form').style.display = 'none';
+  ['reg-nome','reg-login','reg-pass','reg-pass2'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('reg-err').textContent = '';
+}
+
+async function doRegister() {
+  const nome  = document.getElementById('reg-nome').value.trim();
+  const login = document.getElementById('reg-login').value.trim().toLowerCase().replace(/\s/g,'');
+  const pass  = document.getElementById('reg-pass').value;
+  const pass2 = document.getElementById('reg-pass2').value;
+  const err   = document.getElementById('reg-err');
+
+  if (!nome || !login || !pass)       { err.textContent = 'Preencha todos os campos.'; return; }
+  if (pass !== pass2)                  { err.textContent = 'As senhas não coincidem.'; return; }
+  if (pass.length < 4)                 { err.textContent = 'Senha mínima: 4 caracteres.'; return; }
+  if (!/^[a-z0-9._]+$/.test(login))   { err.textContent = 'Login: apenas letras, números, ponto e underscore.'; return; }
+
+  const btn = document.getElementById('btn-register');
+  btn.disabled = true;
+  btn.textContent = '⏳ Cadastrando...';
+
+  // Recarrega lista da nuvem para checar duplicados
+  await loadUsersFromCloud();
+  const users = getUsers();
+
+  if (users.find(u => u.login === login)) {
+    err.textContent = 'Esse login já existe. Escolha outro.';
+    btn.disabled = false; btn.textContent = 'Cadastrar'; return;
+  }
+
+  users.push({ login, pass, nome, role: 'operator' });
+  await saveUsers(users);
+
+  err.style.color = '#2ecc71';
+  err.textContent = '✅ Cadastro realizado! Faça login agora.';
+  btn.disabled = false; btn.textContent = 'Cadastrar';
+
+  // Preenche o login automaticamente
+  setTimeout(() => {
+    hideRegister();
+    document.getElementById('login-user').value = login;
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+  }, 1500);
+}
 
 function showToast(msg, color='#3dd68c') {
   const t=document.getElementById('toast');
