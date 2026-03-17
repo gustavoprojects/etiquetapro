@@ -6871,6 +6871,15 @@ function calcDescFontSizePreview(text) {
   return '11px';
 }
 
+function calcLoteFontSize(text) {
+  const len = (text || '').length;
+  if (len <= 6)  return '160px';
+  if (len <= 10) return '130px';
+  if (len <= 14) return '100px';
+  if (len <= 18) return '78px';
+  return '60px';
+}
+
 function updatePreview() {
   const d = getFormData();
   const now = new Date().toLocaleDateString('pt-BR');
@@ -6948,10 +6957,9 @@ function printA4() {
   const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>A4 — ${d.codigo}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&display=swap');
     @page{size:A4 landscape;margin:6mm}
     *{box-sizing:border-box;margin:0;padding:0}
-    html,body{width:100%;height:100%;font-family:'Syne',Arial,sans-serif;background:white}
+    html,body{width:100%;height:100%;font-family:Arial,sans-serif;background:white}
     body{display:block;padding:0;margin:0}
     .page{
       background:white;
@@ -6970,7 +6978,7 @@ function printA4() {
     }
     .page > *{position:relative;z-index:1}
     .hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:4mm;border-bottom:2.5px solid #1a1a2e;flex-shrink:0;}
-    .logo-wrap{display:flex;align-items:center;gap:10px}
+    .logo-wrap{display:flex;align-items:center;gap:14px}
     .logo-img{width:44px;height:44px;object-fit:contain}
     .empresa-name{font-size:20px;font-weight:900;color:#1a1a2e}
     .empresa-sub{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:2px}
@@ -6981,25 +6989,25 @@ function printA4() {
     .filial-pill{background:#1a1a2e;color:white;padding:7px 20px;border-radius:6px;font-size:15px;font-weight:800;letter-spacing:.5px}
     .main-blocks{display:flex;flex-direction:column;gap:3mm;flex:1;min-height:0}
     .info-block{padding:10px 18px;border-radius:0 10px 10px 0;display:flex;flex-direction:column;justify-content:center;flex:1;min-height:0;}
-    .info-block.produto{background:#f5f5f5;border-left:8px solid #1a1a2e}
-    .info-block.lote   {background:#e6f2ff;border-left:8px solid #2e86d4}
+    .info-block.produto{background:#f5f5f5;border-left:10px solid #1a1a2e}
+    .info-block.lote   {background:#e6f2ff;border-left:10px solid #2e86d4}
     .block-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:4px}
     .info-block.produto .block-label{color:#555}
     .info-block.lote    .block-label{color:#1a6aaa}
-    .block-value{font-size:clamp(60px,5.5vw,120px);font-weight:800;color:#1a1a2e;line-height:1.2;word-break:break-all;font-family:Arial,sans-serif}
-    .info-block.lote .block-value{font-size:clamp(100px,5.5vw,170px)}
+    .block-value{font-size:clamp(70px,5.5vw,130px);font-weight:800;color:#1a1a2e;line-height:1.2;word-break:normal;overflow-wrap:break-word;font-family:Arial,sans-serif}
+    /* lote usa font-size inline via calcLoteFontSize() */
     .bottom-row{display:grid;grid-template-columns:auto 2.5fr;gap:3mm;flex-shrink:0;}
     .card{border-radius:8px;display:flex;flex-direction:column;justify-content:center}
-    .card.codigo-qty{background:#f0f0f0;border:1.5px solid #ddd;}
-    .card.validade  {background:#fff8e1;border:3px solid #f0a000;padding:8px 14px;}
+    .card.codigo-qty{background:#f0f0f0;border:2px solid #ddd;}
+    .card.validade  {background:#fff8e1;border:4px solid #f0a000;padding:8px 14px;}
     .card-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:800;margin-bottom:3px;color:#aaa}
     .card.validade .card-lbl{color:#b07800;font-size:11px}
     .card-val{font-weight:900;color:#1a1a2e;line-height:1}
-    .codigo-block{padding:8px 14px;border-bottom:1px solid #ddd;}
-    .codigo-block .card-val{font-size:16px;color:#777}
-    .qty-block{padding:8px 14px;}
-    .qty-block .card-val{font-size:24px}
-    .card.validade .card-val{font-size:130px;color:#b07800}
+    .codigo-block{padding:6px 12px;border-bottom:1px solid #ddd;}
+    .codigo-block .card-val{font-size:50px;color:#1a1a2e}
+    .qty-block{padding:6px 12px;}
+    .qty-block .card-val{font-size:70px}
+    .card.validade .card-val{font-size:190px;color:#1a1a2e}
     .card.validade .card-lbl::before{content:'⚠  '}
     .val-sub{font-size:9px;color:#c08000;margin-top:3px;font-weight:600}
   </style></head><body>
@@ -7026,7 +7034,7 @@ function printA4() {
       </div>
       <div class="info-block lote">
         <div class="block-label">Lote</div>
-        <div class="block-value">${d.lote}</div>
+        <div class="block-value" style="font-size:${calcLoteFontSize(d.lote)}">${d.lote}</div>
       </div>
     </div>
     <div class="bottom-row">
