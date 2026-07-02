@@ -508,6 +508,7 @@ select option{background:var(--surface2)}
       <span id="header-turno-tag" class="turno-tag"></span>
     </div>
     <button id="btn-logout" onclick="doLogout()" style="display:none;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:11px;cursor:pointer">Sair</button>
+    <button id="btn-interno" onclick="window.open('etiquetapro_interno.html','_blank')" title="Abrir Processo Interno (Recebimento/Estoque) em outra aba" style="padding:4px 12px;border-radius:6px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-family:inherit;font-size:11px;font-weight:800;letter-spacing:.5px;cursor:pointer;white-space:nowrap">🏭 PROCESSO INTERNO</button>
     <button class="btn-settings btn-theme" id="btn-theme" onclick="toggleTheme()" title="Alternar modo claro/escuro">🌙</button>
     <button class="btn-settings" onclick="openSettings()">⚙️</button>
   </div>
@@ -661,6 +662,7 @@ select option{background:var(--surface2)}
       <div class="preview-tabs">
         <button class="tab-btn active" onclick="switchTab('preview',this)">📄 Preview A4</button>
         <button class="tab-btn" onclick="switchTab('log',this)">📋 Histórico (<span id="log-count">0</span>)</button>
+        <button class="tab-btn" id="tabbtn-produtos" style="display:none" onclick="switchTab('produtos',this)">🗂 Produtos</button>
       </div>
     </div>
     <div class="preview-body">
@@ -711,6 +713,47 @@ select option{background:var(--surface2)}
           <button onclick="clearLog()" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:11px;font-weight:700">🗑 Limpar</button>
         </div>
         <div id="log-body"><div class="empty-log">// nenhum registro ainda</div></div>
+      </div>
+      <!-- ══ MANUTENÇÃO DE PRODUTOS (ADMIN) — bloco aditivo, não altera funcionalidades existentes ══ -->
+      <style>
+        .eprod-table{width:100%;border-collapse:collapse;font-size:12px}
+        .eprod-table th{text-align:left;padding:8px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border)}
+        .eprod-table td{padding:8px;border-bottom:1px solid var(--border)}
+        .eprod-table tr:hover td{background:var(--surface2)}
+        .eprod-btn{border:none;border-radius:10px;padding:10px 20px;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer}
+        .eprod-btn:hover{filter:brightness(1.12)}
+        .eprod-bulk{width:100%;min-height:110px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:'DM Mono',monospace;font-size:12px;outline:none;resize:vertical}
+        .eprod-bulk:focus{border-color:var(--accent)}
+        .eprod-input{background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-family:inherit;font-size:14px;outline:none;width:100%}
+        .eprod-input:focus{border-color:var(--accent)}
+        .eprod-lbl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;display:block;margin-bottom:4px}
+      </style>
+      <div id="tab-produtos" style="display:none">
+        <div class="section-title">Adicionar / Editar Produto</div>
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:10px">
+          <div><label class="eprod-lbl">Código</label><input class="eprod-input" type="text" id="eprod-codigo" maxlength="15" placeholder="PA000999" style="font-family:'DM Mono',monospace"></div>
+          <div><label class="eprod-lbl">Descrição</label><input class="eprod-input" type="text" id="eprod-desc" maxlength="60" placeholder="DESCRIÇÃO DO PRODUTO"></div>
+        </div>
+        <button class="eprod-btn" style="background:var(--accent);color:#0e0e12" id="eprod-btn-save" onclick="eprodSaveProduto()">➕ Adicionar Produto</button>
+
+        <div class="section-title">Importação em Massa (colar do Excel)</div>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Cole as linhas copiadas do Excel — uma por linha, no formato <b>CÓDIGO [tab ou ;] DESCRIÇÃO</b>. Códigos existentes serão atualizados.</p>
+        <textarea class="eprod-bulk" id="eprod-bulk" placeholder="PA000101&#9;FARINHA DE TRIGO 25KG&#10;PA000102;ACUCAR CRISTAL 50KG"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="eprod-btn" style="background:var(--accent);color:#0e0e12" onclick="eprodBulkImport()">📥 Importar Lista</button>
+          <button class="eprod-btn" style="background:var(--surface2);color:var(--text);border:1.5px solid var(--border)" onclick="eprodExportBackup()">💾 Backup (.json)</button>
+          <label class="eprod-btn" style="background:var(--surface2);color:var(--text);border:1.5px solid var(--border);cursor:pointer">📂 Restaurar Backup<input type="file" accept=".json" style="display:none" onchange="eprodImportBackup(this)"></label>
+          <button class="eprod-btn" style="background:transparent;color:var(--accent2);border:1.5px solid var(--accent2)" onclick="eprodRestaurarBase()">↺ Catálogo Original</button>
+        </div>
+
+        <div class="section-title">Catálogo (<span id="eprod-count">0</span> produtos)</div>
+        <input class="eprod-input" type="text" id="eprod-filter" placeholder="🔍 Filtrar catálogo..." oninput="eprodRender()" style="margin-bottom:10px">
+        <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
+          <table class="eprod-table">
+            <thead><tr><th>Código</th><th>Descrição</th><th style="width:70px">Ações</th></tr></thead>
+            <tbody id="eprod-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div><!-- /panel-preview -->
@@ -6406,6 +6449,7 @@ async function doLogin(){
   if(u.role==='admin'){
     document.getElementById('filter-turno').style.display = '';
     document.getElementById('filter-usuario').style.display = '';
+    document.getElementById('tabbtn-produtos').style.display = '';
     populateUserFilter();
   }
   renderLog();
@@ -6419,6 +6463,7 @@ function doLogout(){
   document.getElementById('btn-logout').style.display = 'none';
   document.getElementById('filter-turno').style.display = 'none';
   document.getElementById('filter-usuario').style.display = 'none';
+  document.getElementById('tabbtn-produtos').style.display = 'none';
   document.getElementById('login-overlay').style.display = '';
   document.getElementById('login-overlay').classList.remove('hidden');
   document.getElementById('login-user').value = '';
@@ -6775,7 +6820,7 @@ function filterProducts(val) {
   if (!val || val.length < 2) { dd.classList.remove('show'); return; }
   const norm = s => s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const q = norm(val);
-  const m = PRODUTOS.filter(p => norm(p.descricao).includes(q) || p.codigo.toUpperCase().includes(q)).slice(0,12);
+  const m = eprodGet().filter(p => norm(p.descricao).includes(q) || p.codigo.toUpperCase().includes(q)).slice(0,12);
   if (!m.length) {
     dd.innerHTML = '<div class="dropdown-item"><span class="di-desc" style="color:var(--muted)">Nenhum resultado</span></div>';
     dd.classList.add('show'); return;
@@ -7238,6 +7283,8 @@ function switchTab(tab, btn) {
   if (btn) btn.classList.add('active');
   document.getElementById('tab-preview').style.display = tab==='preview'?'block':'none';
   document.getElementById('tab-log').style.display     = tab==='log'?'block':'none';
+  var _tp = document.getElementById('tab-produtos'); if (_tp) _tp.style.display = tab==='produtos'?'block':'none';
+  if (tab==='produtos' && typeof eprodRender==='function') eprodRender();
 }
 function clearForm() {
   document.getElementById('search-desc').value='';
@@ -7453,6 +7500,133 @@ applyTheme();
   if (loginLoading) loginLoading.style.display = 'none';
   if (loginBtn)     loginBtn.disabled = false;
 })();
+
+
+// ═══════════════════════════════════════════════════════════════
+//  MANUTENÇÃO DE PRODUTOS (ADMIN) — bloco aditivo
+//  Catálogo em localStorage 'epro-produtos-custom';
+//  sem alterações, a busca usa o PRODUTOS original.
+// ═══════════════════════════════════════════════════════════════
+function eprodGet() {
+  try {
+    const p = JSON.parse(localStorage.getItem('epro-produtos-custom') || 'null');
+    if (Array.isArray(p) && p.length) return p;
+  } catch(e){}
+  return PRODUTOS.slice();
+}
+function eprodSave(arr) {
+  arr.sort((a,b)=>a.codigo.localeCompare(b.codigo));
+  localStorage.setItem('epro-produtos-custom', JSON.stringify(arr));
+  eprodRender();
+}
+function eprodIsAdmin() { return currentSession && currentSession.role === 'admin'; }
+let _eprodEditing = null;
+function eprodRender() {
+  const body = document.getElementById('eprod-body');
+  if (!body) return;
+  const arr = eprodGet();
+  document.getElementById('eprod-count').textContent = arr.length;
+  const f = (document.getElementById('eprod-filter').value || '').toUpperCase();
+  const norm = s => s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const list = f ? arr.filter(p => norm(p.descricao).includes(norm(f)) || p.codigo.toUpperCase().includes(f)) : arr;
+  body.innerHTML = list.slice(0,400).map(p => {
+    const s2 = p.descricao.replace(/'/g,"&#39;").replace(/"/g,'&quot;');
+    return `<tr><td style="font-family:'DM Mono',monospace">${p.codigo}</td><td>${p.descricao}</td>
+    <td><button style="background:none;border:none;cursor:pointer;font-size:13px" title="Editar" onclick="eprodEdit('${p.codigo}','${s2}')">✏️</button>
+    <button style="background:none;border:none;cursor:pointer;font-size:13px" title="Excluir" onclick="eprodDelete('${p.codigo}')">🗑</button></td></tr>`;
+  }).join('') + (list.length>400 ? `<tr><td colspan="3" style="color:var(--muted)">… ${list.length-400} itens ocultos — use o filtro</td></tr>` : '');
+}
+function eprodEdit(codigo, desc) {
+  if (!eprodIsAdmin()) { showToast('⚠ Apenas Admin!','#e05a2b'); return; }
+  _eprodEditing = codigo;
+  document.getElementById('eprod-codigo').value = codigo;
+  document.getElementById('eprod-desc').value = desc;
+  document.getElementById('eprod-btn-save').textContent = '💾 Salvar Alteração';
+  document.getElementById('eprod-desc').focus();
+}
+function eprodSaveProduto() {
+  if (!eprodIsAdmin()) { showToast('⚠ Apenas Admin!','#e05a2b'); return; }
+  const codigo = document.getElementById('eprod-codigo').value.trim().toUpperCase();
+  const desc   = document.getElementById('eprod-desc').value.trim().toUpperCase();
+  if (!codigo || !desc) { showToast('⚠ Preencha código e descrição!','#e05a2b'); return; }
+  const arr = eprodGet();
+  if (_eprodEditing) {
+    const i = arr.findIndex(p => p.codigo === _eprodEditing);
+    if (i >= 0) arr.splice(i,1);
+  }
+  const dupe = arr.findIndex(p => p.codigo === codigo);
+  if (dupe >= 0) {
+    if (!confirm(`Código ${codigo} já existe (${arr[dupe].descricao}). Substituir?`)) return;
+    arr.splice(dupe,1);
+  }
+  arr.push({ codigo, descricao: desc });
+  eprodSave(arr);
+  _eprodEditing = null;
+  document.getElementById('eprod-codigo').value = '';
+  document.getElementById('eprod-desc').value = '';
+  document.getElementById('eprod-btn-save').textContent = '➕ Adicionar Produto';
+  showToast(`✅ Produto ${codigo} salvo!`);
+}
+function eprodDelete(codigo) {
+  if (!eprodIsAdmin()) { showToast('⚠ Apenas Admin!','#e05a2b'); return; }
+  if (!confirm(`Excluir o produto ${codigo} do catálogo?`)) return;
+  eprodSave(eprodGet().filter(p => p.codigo !== codigo));
+  showToast(`🗑 ${codigo} excluído`);
+}
+function eprodBulkImport() {
+  if (!eprodIsAdmin()) { showToast('⚠ Apenas Admin!','#e05a2b'); return; }
+  const txt = document.getElementById('eprod-bulk').value.trim();
+  if (!txt) { showToast('⚠ Cole a lista primeiro!','#e05a2b'); return; }
+  const arr = eprodGet();
+  const byCode = {}; arr.forEach(p => byCode[p.codigo] = p);
+  let added = 0, updated = 0, skipped = 0;
+  txt.split(/\r?\n/).forEach(line => {
+    line = line.trim();
+    if (!line) return;
+    const sep = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : null);
+    if (!sep) { skipped++; return; }
+    const idx = line.indexOf(sep);
+    const codigo = line.slice(0,idx).trim().toUpperCase();
+    const desc   = line.slice(idx+1).trim().toUpperCase();
+    if (!codigo || !desc) { skipped++; return; }
+    if (byCode[codigo]) { byCode[codigo].descricao = desc; updated++; }
+    else { const np = { codigo, descricao: desc }; byCode[codigo] = np; arr.push(np); added++; }
+  });
+  eprodSave(arr);
+  document.getElementById('eprod-bulk').value = '';
+  showToast(`📥 Importação: ${added} novos, ${updated} atualizados${skipped ? ', '+skipped+' ignorados' : ''}`);
+}
+function eprodExportBackup() {
+  const blob = new Blob([JSON.stringify(eprodGet(), null, 1)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `catalogo_etiquetapro_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('💾 Backup do catálogo exportado');
+}
+function eprodImportBackup(input) {
+  if (!eprodIsAdmin()) { showToast('⚠ Apenas Admin!','#e05a2b'); input.value=''; return; }
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const arr = JSON.parse(reader.result);
+      if (!Array.isArray(arr) || !arr.every(p => p.codigo && p.descricao)) throw new Error('formato');
+      if (!confirm(`Substituir o catálogo atual por ${arr.length} produtos do backup?`)) return;
+      eprodSave(arr.map(p => ({ codigo:String(p.codigo).toUpperCase(), descricao:String(p.descricao).toUpperCase() })));
+      showToast(`📂 Catálogo restaurado: ${arr.length} produtos`);
+    } catch(e) { showToast('⚠ Arquivo inválido!','#e05a2b'); }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+function eprodRestaurarBase() {
+  if (!eprodIsAdmin()) { showToast('⚠ Apenas Admin!','#e05a2b'); return; }
+  if (!confirm('Descartar todas as alterações e voltar ao catálogo original?')) return;
+  localStorage.removeItem('epro-produtos-custom');
+  eprodRender();
+  showToast('↺ Catálogo original restaurado');
+}
 
 </script>
 <!-- IFRAMES OCULTOS PARA IMPRESSÃO SEM POPUP -->
