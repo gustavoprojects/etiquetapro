@@ -10,78 +10,132 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
 
 :root {
-  --bg:#0e0e12; --surface:#16161d; --surface2:#1e1e28; --border:#2a2a38;
-  --accent:#40b0f0; --accent2:#e05a2b; --text:#e8e8f0; --muted:#6b6b88;
-  --success:#3dd68c; --radius:10px; --header-h:58px;
+  --bg:#0b0d14; --bg2:#11141f; --surface:#151a28; --surface2:#1d2334;
+  --border:#272e44; --border2:#333c58;
+  --accent:#4cc2ff; --accent2:#7a5cff; --danger:#f87171; --warn:#fbbf24;
+  --text:#eef0fa; --muted:#8a90ad; --success:#34d399;
+  --grad:linear-gradient(135deg,#4cc2ff,#7a5cff);
+  --grad-success:linear-gradient(135deg,#34d399,#0ea5a4);
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --radius:16px; --header-h:62px;
 }
 html[data-theme="light"] {
-  --bg:#f4f4f8; --surface:#ffffff; --surface2:#ebebf2; --border:#d0d0de;
-  --accent:#0070c0; --accent2:#e05a2b; --text:#1a1a2e; --muted:#888899;
-  --success:#1da868;
+  --bg:#eef1f8; --bg2:#e4e8f4; --surface:#ffffff; --surface2:#f1f3fa;
+  --border:#dce1ef; --border2:#c5cde4;
+  --accent:#0284d0; --accent2:#6d4de0; --danger:#dc2626; --warn:#b45309;
+  --text:#171c2e; --muted:#6d7391; --success:#0c9c6e;
+  --shadow:0 10px 30px rgba(30,40,90,.12);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{height:100%}
-body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100%;display:flex;flex-direction:column}
+body{
+  color:var(--text);font-family:'Syne',sans-serif;min-height:100%;
+  display:flex;flex-direction:column;
+  background:
+    radial-gradient(900px 400px at 85% -10%, rgba(122,92,255,.14), transparent 60%),
+    radial-gradient(700px 380px at -10% 30%, rgba(76,194,255,.10), transparent 60%),
+    var(--bg);
+  background-attachment:fixed;
+}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
 
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--success);color:#0e0e12;padding:12px 22px;border-radius:30px;font-size:14px;font-weight:700;transition:transform .35s cubic-bezier(.34,1.56,.64,1);z-index:9999;white-space:nowrap;max-width:90vw;text-align:center;pointer-events:none}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--grad-success);color:#06231a;padding:13px 24px;border-radius:30px;font-size:14px;font-weight:800;transition:transform .35s cubic-bezier(.34,1.56,.64,1);z-index:9999;white-space:nowrap;max-width:92vw;text-align:center;pointer-events:none;box-shadow:var(--shadow)}
 .toast.show{transform:translateX(-50%) translateY(0)}
 
-header{height:var(--header-h);background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 18px;position:sticky;top:0;z-index:100}
-.hdr-logo{width:34px;height:34px;object-fit:contain;border-radius:6px}
-.hdr-title{font-size:16px;font-weight:800;letter-spacing:.5px}
-.hdr-title small{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;font-weight:600}
-.hdr-badge{background:var(--accent);color:#0e0e12;font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;letter-spacing:1px}
+/* ── HEADER ── */
+header{height:var(--header-h);background:color-mix(in srgb, var(--surface) 78%, transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 22px;position:sticky;top:0;z-index:100}
+.hdr-logo{width:38px;height:38px;object-fit:contain;border-radius:10px;background:white;padding:3px;box-shadow:0 0 0 2px var(--border), 0 4px 14px rgba(76,194,255,.25)}
+.hdr-title{font-size:17px;font-weight:800;letter-spacing:.3px;line-height:1.1}
+.hdr-title b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hdr-title small{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:2.5px;font-weight:700;margin-top:2px}
+.hdr-badge{background:var(--grad);color:#fff;font-size:10px;font-weight:800;padding:6px 14px;border-radius:20px;letter-spacing:1.2px;box-shadow:0 4px 14px rgba(122,92,255,.35)}
 .hdr-spacer{flex:1}
-.hdr-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 12px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600}
-.hdr-btn:hover{border-color:var(--accent)}
+.hdr-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;transition:all .2s}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
+.hdr-user{display:none;align-items:center;gap:8px;font-size:12px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:6px 14px}
 
-.layout{display:flex;flex:1;min-height:0}
-.panel-form{width:420px;min-width:340px;border-right:1px solid var(--border);padding:18px;overflow-y:auto;background:var(--surface)}
-.panel-preview{flex:1;padding:18px;overflow-y:auto}
+/* ── LAYOUT ── */
+.layout{display:grid;grid-template-columns:410px 1fr;gap:22px;flex:1;min-height:0;padding:22px;max-width:1500px;width:100%;margin:0 auto}
+.panel-form{min-width:0;display:flex;flex-direction:column;gap:16px;overflow-y:auto;padding-right:4px}
+.panel-preview{min-width:0;overflow-y:auto}
 
-.section-title{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-weight:800;margin:18px 0 10px;padding-bottom:5px;border-bottom:1px solid var(--border)}
-.section-title:first-child{margin-top:0}
-.field-group{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
-.field-group label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700}
-.field-group input{background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);padding:10px 12px;font-family:inherit;font-size:14px;outline:none}
-.field-group input:focus{border-color:var(--accent)}
-.field-read{background:var(--surface2);border:1.5px dashed var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-weight:700;color:var(--text);min-height:38px}
-.row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+/* ── CARDS DE SEÇÃO ── */
+.sec-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);animation:fadeUp .45s ease both}
+.sec-card:nth-child(2){animation-delay:.06s}
+.sec-card:nth-child(3){animation-delay:.12s}
+.sec-card:nth-child(4){animation-delay:.18s}
+.sec-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.sec-ico{width:36px;height:36px;border-radius:11px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-shadow:0 4px 12px rgba(76,194,255,.3)}
+.sec-ico.green{background:var(--grad-success);box-shadow:0 4px 12px rgba(52,211,153,.3)}
+.sec-ico.gray{background:var(--surface2);border:1px solid var(--border2);box-shadow:none}
+.sec-head h3{font-size:14px;font-weight:800;letter-spacing:.3px}
+.sec-head small{display:block;font-size:10px;color:var(--muted);font-weight:600;margin-top:1px}
 
-.search-wrap{position:relative;margin-bottom:10px}
-.search-wrap input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);padding:11px 12px 11px 36px;font-family:inherit;font-size:14px;outline:none}
-.search-wrap input:focus{border-color:var(--accent)}
-.search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;opacity:.6;z-index:2}
-.dropdown-results{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface2);border:1px solid var(--border);border-radius:8px;max-height:280px;overflow-y:auto;z-index:50;display:none;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+/* ── CAMPOS ── */
+.field-group{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field-group:last-child{margin-bottom:0}
+.field-group label{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);font-weight:700}
+.field-group input{background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);padding:11px 13px;font-family:inherit;font-size:14px;outline:none;transition:border-color .2s, box-shadow .2s}
+.field-group input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)}
+.field-group input::placeholder{color:var(--muted);opacity:.6}
+.field-read{background:var(--surface2);border:1.5px dashed var(--border2);border-radius:10px;padding:11px 13px;font-size:13px;font-weight:700;color:var(--text);min-height:40px;transition:border-color .3s}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* ── BUSCA ── */
+.search-wrap{position:relative;margin-bottom:12px}
+.search-wrap input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;color:var(--text);padding:13px 14px 13px 40px;font-family:inherit;font-size:14px;outline:none;transition:border-color .2s, box-shadow .2s}
+.search-wrap input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)}
+.search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:14px;opacity:.6;z-index:2}
+.dropdown-results{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:12px;max-height:290px;overflow-y:auto;z-index:50;display:none;box-shadow:0 18px 40px rgba(0,0,0,.45);animation:popIn .15s ease}
 .dropdown-results.show{display:block}
-.dropdown-item{padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);align-items:center}
+.dropdown-item{padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--border);align-items:center;transition:background .15s}
 .dropdown-item:last-child{border-bottom:none}
-.dropdown-item:hover{background:var(--surface)}
+.dropdown-item:hover{background:var(--surface2)}
 .di-desc{font-size:12px;font-weight:600}
-.di-code{font-size:10px;color:var(--accent);font-family:'DM Mono',monospace;white-space:nowrap}
+.di-code{font-size:10px;color:var(--accent);font-family:'DM Mono',monospace;white-space:nowrap;background:color-mix(in srgb, var(--accent) 12%, transparent);padding:3px 8px;border-radius:6px}
 
-.qty-wrap{display:flex;gap:6px;align-items:stretch}
-.qty-wrap input{flex:1;text-align:center;font-size:16px;font-weight:800}
-.qty-btn{width:42px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-size:18px;font-weight:800;cursor:pointer}
-.qty-btn:hover{border-color:var(--accent)}
+/* ── QUANTIDADE ── */
+.qty-wrap{display:flex;gap:8px;align-items:stretch}
+.qty-wrap input{flex:1;text-align:center;font-size:17px;font-weight:800}
+.qty-btn{width:46px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:19px;font-weight:800;cursor:pointer;transition:all .15s}
+.qty-btn:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-1px)}
+.qty-btn:active{transform:scale(.95)}
 
-.serie-box{background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-.serie-box .lbl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700}
-.serie-box .val{font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--accent)}
+/* ── SÉRIE ── */
+.serie-box{background:linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--surface2)), color-mix(in srgb, var(--accent2) 10%, var(--surface2)));border:1.5px solid var(--border2);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.serie-box .lbl{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);font-weight:700}
+.serie-box .val{font-family:'DM Mono',monospace;font-size:19px;font-weight:700;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 
-.btn{border:none;border-radius:10px;padding:13px 16px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;transition:filter .15s}
-.btn:hover{filter:brightness(1.12)}
-.btn-print{background:var(--accent);color:#0e0e12;font-size:15px}
+/* ── BOTÕES ── */
+.btn{border:none;border-radius:12px;padding:14px 16px;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s, box-shadow .2s, filter .15s}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.btn:active{transform:translateY(0) scale(.98)}
+.btn-print{background:var(--grad);color:#fff;font-size:15px;box-shadow:0 6px 18px rgba(76,194,255,.3)}
+.btn-lote-style{background:var(--grad-success);color:#06231a;box-shadow:0 6px 18px rgba(52,211,153,.28)}
 .btn-secondary{background:var(--surface2);color:var(--text);border:1.5px solid var(--border)}
-.btn-danger{background:transparent;color:var(--accent2);border:1.5px solid var(--accent2)}
-.actions{display:flex;flex-direction:column;gap:8px}
+.btn-secondary:hover{border-color:var(--accent)}
+.btn-danger{background:transparent;color:var(--danger);border:1.5px solid color-mix(in srgb, var(--danger) 45%, transparent)}
+.btn-danger:hover{border-color:var(--danger);background:color-mix(in srgb, var(--danger) 8%, transparent)}
+.actions{display:flex;flex-direction:column;gap:10px}
+.btn-sm{width:auto;padding:11px 20px;font-size:13px}
 
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:14px}
-.tab-btn{background:none;border:none;color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent}
-.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+/* ── ABAS (pílulas) ── */
+.tabs{display:inline-flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:5px;margin-bottom:18px;box-shadow:var(--shadow)}
+.tab-btn{background:none;border:none;color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;padding:10px 18px;cursor:pointer;border-radius:10px;transition:all .2s;white-space:nowrap}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{background:var(--grad);color:#fff;box-shadow:0 4px 12px rgba(76,194,255,.3)}
 
-.a4-mini{background:white;color:#1a1a2e;border-radius:8px;padding:16px;max-width:760px;aspect-ratio:297/210;display:flex;flex-direction:column;gap:8px;box-shadow:0 10px 30px rgba(0,0,0,.35);font-family:Arial,sans-serif}
+/* ── PREVIEW A4 ── */
+.preview-stage{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;box-shadow:var(--shadow);animation:fadeUp .5s ease both}
+.a4-mini{background:white;color:#1a1a2e;border-radius:10px;padding:18px;max-width:780px;margin:0 auto;aspect-ratio:297/210;display:flex;flex-direction:column;gap:8px;box-shadow:0 24px 60px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.2);font-family:Arial,sans-serif;transition:transform .3s}
+.a4-mini:hover{transform:scale(1.012)}
 .mini-hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1a1a2e;padding-bottom:6px}
 .mini-hdr .emp{font-size:13px;font-weight:900}
 .mini-hdr .emp small{display:block;font-size:7px;color:#999;text-transform:uppercase;letter-spacing:1px}
@@ -103,34 +157,52 @@ header{height:var(--header-h);background:var(--surface);border-bottom:1px solid 
 .mini-right{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px dashed #ccc;border-radius:6px;padding:6px}
 .mini-right .serie-lbl{font-family:'DM Mono',monospace;font-size:9px;color:#0055cc;font-weight:700}
 #qr-preview-container img,#qr-preview-container canvas{width:130px!important;height:130px!important}
+.qr-legend{font-size:11px;color:var(--muted);margin-top:14px;text-align:center;line-height:1.6}
+.qr-legend b{color:var(--text)}
 
+/* ── TABELAS ── */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;animation:fadeUp .5s ease both}
+.tbl-scroll{overflow:auto;max-height:480px}
 table.data{width:100%;border-collapse:collapse;font-size:12px}
-table.data th{text-align:left;padding:8px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border)}
-table.data td{padding:8px;border-bottom:1px solid var(--border)}
+table.data th{text-align:left;padding:11px 12px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:2}
+table.data td{padding:10px 12px;border-bottom:1px solid var(--border)}
 table.data tr:hover td{background:var(--surface2)}
-.tbl-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 5px}
+.tbl-btn{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 5px;border-radius:6px;transition:background .15s}
+.tbl-btn:hover{background:var(--surface2)}
+.tbl-foot{display:flex;gap:10px;padding:14px;border-top:1px solid var(--border);flex-wrap:wrap}
 
-textarea.bulk{width:100%;min-height:120px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:'DM Mono',monospace;font-size:12px;outline:none;resize:vertical}
-textarea.bulk:focus{border-color:var(--accent)}
+/* ── ADMIN PRODUTOS ── */
+textarea.bulk{width:100%;min-height:120px;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;outline:none;resize:vertical;transition:border-color .2s, box-shadow .2s}
+textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)}
+.hint{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.6}
 
-#login-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;transition:opacity .4s}
+/* ── LOGIN ── */
+#login-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:1000;transition:opacity .4s;background:
+  radial-gradient(900px 500px at 80% -10%, rgba(122,92,255,.2), transparent 60%),
+  radial-gradient(700px 480px at -5% 90%, rgba(76,194,255,.15), transparent 60%),
+  var(--bg)}
 #login-overlay.hidden{opacity:0;pointer-events:none}
-.login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px}
-.login-card h2{font-size:18px;font-weight:800}
-.login-card h2 small{display:block;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin-top:4px}
+.login-card{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:34px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:15px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:popIn .4s ease;position:relative;overflow:hidden}
+.login-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--grad)}
+.login-card h2{font-size:19px;font-weight:800;display:flex;align-items:center;gap:10px}
+.login-card h2 small{display:block;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin-top:4px;font-weight:700}
 .turno-row{display:flex;gap:8px}
-.turno-btn{flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;color:var(--muted);padding:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
-.turno-btn.active{border-color:var(--accent);color:var(--accent)}
-.turno-btn.noturno.active{border-color:#8888ff;color:#8888ff}
-.btn-login{background:var(--accent);color:#0e0e12;border:none;border-radius:10px;padding:13px;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer}
-.login-err{color:var(--accent2);font-size:12px;font-weight:600;min-height:16px}
+.turno-btn{flex:1;background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--muted);padding:11px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.turno-btn:hover{border-color:var(--border2)}
+.turno-btn.active{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb, var(--accent) 8%, transparent)}
+.turno-btn.noturno.active{border-color:#8888ff;color:#8888ff;background:rgba(136,136,255,.08)}
+.btn-login{background:var(--grad);color:#fff;border:none;border-radius:12px;padding:14px;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;transition:transform .15s, filter .15s;box-shadow:0 6px 18px rgba(76,194,255,.3)}
+.btn-login:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.login-err{color:var(--danger);font-size:12px;font-weight:600;min-height:16px}
 
 .print-frame{position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden}
 #qr-hidden{position:fixed;left:-9999px;top:-9999px}
 
-@media (max-width:900px){
-  .layout{flex-direction:column}
-  .panel-form{width:100%;min-width:0;border-right:none;border-bottom:1px solid var(--border)}
+@media (max-width:980px){
+  .layout{grid-template-columns:1fr;padding:14px;gap:14px}
+  .panel-form{overflow:visible;padding-right:0}
+  .hdr-badge{display:none}
+  .tabs{width:100%;overflow-x:auto}
 }
 </style>
 </head>
@@ -138,7 +210,7 @@ textarea.bulk:focus{border-color:var(--accent)}
 
 <div id="login-overlay">
   <div class="login-card">
-    <h2>🏷 EtiquetaPro <small>Uso Interno — Recebimento / Estoque</small></h2>
+    <h2>🏷 <span>Etiqueta<b style="background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">Pro</b><small>Uso Interno — Recebimento / Estoque</small></span></h2>
     <div class="field-group">
       <label>Usuário</label>
       <input type="text" id="login-user" placeholder="Digite seu usuário" autocomplete="username">
@@ -162,13 +234,13 @@ textarea.bulk:focus{border-color:var(--accent)}
 
 <header>
   <img class="hdr-logo" id="hdr-logo" src="" alt="">
-  <div class="hdr-title">EtiquetaPro <small>Uso Interno</small></div>
-  <span class="hdr-badge">PROCESSO INTERNO</span>
+  <div class="hdr-title">Etiqueta<b>Pro</b><small>Uso Interno</small></div>
+  <span class="hdr-badge">🏭 PROCESSO INTERNO</span>
   <div class="hdr-spacer"></div>
   <button class="hdr-btn" onclick="window.open('etiquetapro.html','_blank')" title="Abrir o EtiquetaPro principal em outra aba">↩ EtiquetaPro Principal</button>
-  <div id="header-user" style="display:none;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
-    👤 <span id="header-user-nome" style="font-weight:600;color:var(--text)"></span>
-    <span id="header-turno-tag" style="font-size:10px"></span>
+  <div id="header-user" class="hdr-user">
+    👤 <span id="header-user-nome" style="font-weight:700;color:var(--text)"></span>
+    <span id="header-turno-tag" style="font-size:11px"></span>
   </div>
   <button id="btn-logout" class="hdr-btn" style="display:none" onclick="doLogout()">Sair</button>
   <button class="hdr-btn" onclick="toggleTheme()" title="Alternar tema">🌓</button>
@@ -177,84 +249,105 @@ textarea.bulk:focus{border-color:var(--accent)}
 <div class="layout">
   <!-- ══════════ FORMULÁRIO ══════════ -->
   <div class="panel-form">
-    <div class="section-title">01 — Produto</div>
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="search-desc" placeholder="Código ou nome do produto..." oninput="filterProducts(this.value)" onfocus="showDropdown()" onblur="hideDropdown()" autocomplete="off">
-      <div class="dropdown-results" id="dropdown"></div>
-    </div>
-    <div class="row-2">
-      <div class="field-group">
-        <label>Código</label>
-        <div class="field-read" id="field-codigo">—</div>
-      </div>
-      <div class="field-group">
-        <label>Descrição</label>
-        <div class="field-read" id="field-desc" style="font-size:11px">—</div>
-      </div>
-    </div>
-    <input type="hidden" id="field-codigo-val" value="">
-    <input type="hidden" id="field-desc-val" value="">
 
-    <div class="section-title">02 — Dados do Recebimento</div>
-    <div class="field-group">
-      <label>Nome do Fornecedor</label>
-      <input type="text" id="field-fornecedor" maxlength="45" placeholder="Ex: FORNECEDOR ABC LTDA" oninput="updatePreview()">
-    </div>
-    <div class="row-2">
-      <div class="field-group">
-        <label>Nº Nota ou Pedido</label>
-        <input type="text" id="field-nota" maxlength="20" placeholder="Ex: 123456" oninput="updatePreview()">
+    <div class="sec-card">
+      <div class="sec-head">
+        <div class="sec-ico">📦</div>
+        <div><h3>Produto</h3><small>Busque por código ou nome</small></div>
       </div>
-      <div class="field-group">
-        <label>Peso</label>
-        <input type="text" id="field-peso" maxlength="15" placeholder="Ex: 25,5 KG" oninput="updatePreview()">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-desc" placeholder="Código ou nome do produto..." oninput="filterProducts(this.value)" onfocus="showDropdown()" onblur="hideDropdown()" autocomplete="off">
+        <div class="dropdown-results" id="dropdown"></div>
       </div>
-    </div>
-    <div class="field-group">
-      <label>Quantidade</label>
-      <div class="qty-wrap">
-        <button class="qty-btn" onclick="changeQty(-1)">−</button>
-        <input type="number" id="field-qty" value="1" min="1" oninput="updatePreview()">
-        <button class="qty-btn" onclick="changeQty(1)">+</button>
+      <div class="row-2">
+        <div class="field-group">
+          <label>Código</label>
+          <div class="field-read" id="field-codigo">—</div>
+        </div>
+        <div class="field-group">
+          <label>Descrição</label>
+          <div class="field-read" id="field-desc" style="font-size:11px">—</div>
+        </div>
       </div>
-    </div>
-    <div class="row-2">
-      <div class="field-group">
-        <label>Lote (máx. 20)</label>
-        <input type="text" id="field-lote" maxlength="20" placeholder="LT2026001" oninput="updatePreview()">
-      </div>
-      <div class="field-group">
-        <label>Validade MM/AA</label>
-        <input type="text" id="field-validade" maxlength="5" placeholder="01/27" oninput="formatValidade(this)">
-      </div>
+      <input type="hidden" id="field-codigo-val" value="">
+      <input type="hidden" id="field-desc-val" value="">
     </div>
 
-    <div class="section-title">03 — Paletização / Impressão em Lote</div>
-    <div class="row-2">
-      <div class="field-group">
-        <label>Qtd Total Recebida</label>
-        <input type="number" id="field-lote-total" min="0" placeholder="Ex: 1800" oninput="updateLoteCalc('total')">
+    <div class="sec-card">
+      <div class="sec-head">
+        <div class="sec-ico">📋</div>
+        <div><h3>Dados do Recebimento</h3><small>Fornecedor, nota, peso, lote e validade</small></div>
       </div>
       <div class="field-group">
-        <label>Nº de Folhas / Paletes</label>
-        <input type="number" id="field-lote-folhas" min="0" placeholder="Ex: 45" oninput="updateLoteCalc('folhas')">
+        <label>Nome do Fornecedor</label>
+        <input type="text" id="field-fornecedor" maxlength="45" placeholder="Ex: FORNECEDOR ABC LTDA" oninput="updatePreview()">
+      </div>
+      <div class="row-2">
+        <div class="field-group">
+          <label>Nº Nota ou Pedido</label>
+          <input type="text" id="field-nota" maxlength="20" placeholder="Ex: 123456" oninput="updatePreview()">
+        </div>
+        <div class="field-group">
+          <label>Peso</label>
+          <input type="text" id="field-peso" maxlength="15" placeholder="Ex: 25,5 KG" oninput="updatePreview()">
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Quantidade <span style="text-transform:none;letter-spacing:0">(por palete, no caso de lote)</span></label>
+        <div class="qty-wrap">
+          <button class="qty-btn" onclick="changeQty(-1)">−</button>
+          <input type="number" id="field-qty" value="1" min="1" oninput="updatePreview()">
+          <button class="qty-btn" onclick="changeQty(1)">+</button>
+        </div>
+      </div>
+      <div class="row-2">
+        <div class="field-group">
+          <label>Lote (máx. 20)</label>
+          <input type="text" id="field-lote" maxlength="20" placeholder="LT2026001" oninput="updatePreview()">
+        </div>
+        <div class="field-group">
+          <label>Validade MM/AA</label>
+          <input type="text" id="field-validade" maxlength="5" placeholder="01/27" oninput="formatValidade(this)">
+        </div>
       </div>
     </div>
-    <div id="lote-resumo" style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Informe a quantidade <b>por palete</b> no campo Quantidade acima e a <b>quantidade total</b> aqui (as folhas são calculadas) — ou informe direto o nº de folhas.</div>
-    <button class="btn btn-print" id="btn-lote" style="background:var(--success);margin-bottom:14px" onclick="printLote()">🖨 Imprimir Lote</button>
 
-    <div class="section-title">04 — Ações</div>
-    <div class="serie-box">
-      <span class="lbl">Próxima Série</span>
-      <span class="val" id="serie-display">EST000001</span>
+    <div class="sec-card">
+      <div class="sec-head">
+        <div class="sec-ico green">🚛</div>
+        <div><h3>Paletização — Impressão em Lote</h3><small>Várias folhas com séries diferentes de uma vez</small></div>
+      </div>
+      <div class="row-2">
+        <div class="field-group">
+          <label>Qtd Total Recebida</label>
+          <input type="number" id="field-lote-total" min="0" placeholder="Ex: 1800" oninput="updateLoteCalc('total')">
+        </div>
+        <div class="field-group">
+          <label>Nº de Folhas / Paletes</label>
+          <input type="number" id="field-lote-folhas" min="0" placeholder="Ex: 45" oninput="updateLoteCalc('folhas')">
+        </div>
+      </div>
+      <div id="lote-resumo" class="hint" style="margin-bottom:12px">Informe a quantidade <b>por palete</b> no campo Quantidade acima e a <b>quantidade total</b> aqui (as folhas são calculadas) — ou informe direto o nº de folhas.</div>
+      <button class="btn btn-lote-style" id="btn-lote" onclick="printLote()">🖨 Imprimir Lote</button>
     </div>
-    <div class="actions">
-      <button class="btn btn-print" onclick="printFolha()">🖨 Imprimir Folha A4 + QR</button>
-      <button class="btn btn-secondary" onclick="exportExcel()">📊 Exportar Histórico (.xlsx)</button>
-      <button class="btn btn-danger" onclick="clearForm()">🗑 Limpar Formulário</button>
+
+    <div class="sec-card">
+      <div class="sec-head">
+        <div class="sec-ico gray">⚡</div>
+        <div><h3>Ações</h3><small>Impressão única e utilitários</small></div>
+      </div>
+      <div class="serie-box">
+        <span class="lbl">Próxima Série</span>
+        <span class="val" id="serie-display">EST000001</span>
+      </div>
+      <div class="actions">
+        <button class="btn btn-print" onclick="printFolha()">🖨 Imprimir Folha A4 + QR</button>
+        <button class="btn btn-secondary" onclick="exportExcel()">📊 Exportar Histórico (.xlsx)</button>
+        <button class="btn btn-danger" onclick="clearForm()">🗑 Limpar Formulário</button>
+      </div>
     </div>
-    <div style="height:16px"></div>
+
   </div>
 
   <!-- ══════════ PREVIEW / HISTÓRICO / PRODUTOS ══════════ -->
@@ -267,82 +360,103 @@ textarea.bulk:focus{border-color:var(--accent)}
 
     <!-- PREVIEW -->
     <div id="tab-preview">
-      <div class="a4-mini">
-        <div class="mini-hdr">
-          <div class="emp">Reino Alimentos <small>Uso Interno — Recebimento / Estoque</small></div>
-          <div class="mini-pill">USO INTERNO</div>
-        </div>
-        <div class="mini-body">
-          <div class="mini-left">
-            <div class="mini-block mb-prod"><div class="bl">Produto</div><div class="bv" id="prev-desc" style="font-size:15px">Produto não selecionado</div></div>
-            <div class="mini-block mb-lote"><div class="bl">Lote</div><div class="bv" id="prev-lote" style="font-size:15px">—</div></div>
-            <div class="mini-block mb-forn"><div class="bl">Fornecedor</div><div class="bv" id="prev-fornecedor" style="font-size:12px">—</div></div>
-            <div class="mini-grid">
-              <div class="mini-cell" style="grid-column:span 2"><div class="bl">Código</div><div class="bv" id="prev-codigo" style="font-size:16px">—</div></div>
-              <div class="mini-cell"><div class="bl">Qtd</div><div class="bv" id="prev-qty">1</div></div>
-              <div class="mini-cell"><div class="bl">Peso</div><div class="bv" id="prev-peso" style="font-size:11px">—</div></div>
-              <div class="mini-cell mini-val" style="grid-column:span 2"><div class="bl">⚠ Validade</div><div class="bv" id="prev-validade">—</div></div>
-              <div class="mini-cell" style="grid-column:span 2"><div class="bl">Nota/Pedido</div><div class="bv" id="prev-nota">—</div></div>
+      <div class="preview-stage">
+        <div class="a4-mini">
+          <div class="mini-hdr">
+            <div class="emp">Reino Alimentos <small>Uso Interno — Recebimento / Estoque</small></div>
+            <div class="mini-pill">USO INTERNO</div>
+          </div>
+          <div class="mini-body">
+            <div class="mini-left">
+              <div class="mini-block mb-prod"><div class="bl">Produto</div><div class="bv" id="prev-desc" style="font-size:15px">Produto não selecionado</div></div>
+              <div class="mini-block mb-lote"><div class="bl">Lote</div><div class="bv" id="prev-lote" style="font-size:15px">—</div></div>
+              <div class="mini-block mb-forn"><div class="bl">Fornecedor</div><div class="bv" id="prev-fornecedor" style="font-size:12px">—</div></div>
+              <div class="mini-grid">
+                <div class="mini-cell" style="grid-column:span 2"><div class="bl">Código</div><div class="bv" id="prev-codigo" style="font-size:16px">—</div></div>
+                <div class="mini-cell"><div class="bl">Qtd</div><div class="bv" id="prev-qty">1</div></div>
+                <div class="mini-cell"><div class="bl">Peso</div><div class="bv" id="prev-peso" style="font-size:11px">—</div></div>
+                <div class="mini-cell mini-val" style="grid-column:span 2"><div class="bl">⚠ Validade</div><div class="bv" id="prev-validade">—</div></div>
+                <div class="mini-cell" style="grid-column:span 2"><div class="bl">Nota/Pedido</div><div class="bv" id="prev-nota">—</div></div>
+              </div>
+            </div>
+            <div class="mini-right">
+              <div id="qr-preview-container"></div>
+              <div class="serie-lbl">Série <span id="lbl-serie">EST000001</span></div>
             </div>
           </div>
-          <div class="mini-right">
-            <div id="qr-preview-container"></div>
-            <div class="serie-lbl">Série <span id="lbl-serie">EST000001</span></div>
-          </div>
         </div>
+        <p class="qr-legend">O QR Code compõe: <b>Código;Descrição;Lote;Quantidade;Peso;Validade;Série;Nota/Pedido;Fornecedor</b></p>
       </div>
-      <p style="font-size:11px;color:var(--muted);margin-top:10px">O QR Code compõe: Código;Descrição;Lote;Quantidade;Peso;Validade;Série;Nota/Pedido;Fornecedor</p>
     </div>
 
     <!-- HISTÓRICO -->
     <div id="tab-log" style="display:none">
-      <div style="overflow-x:auto">
-        <table class="data" id="log-table">
-          <thead><tr><th>Série</th><th>Palete</th><th>Código</th><th>Produto</th><th>Qtd</th><th>Peso</th><th>Lote</th><th>Val.</th><th>Nota</th><th>Fornecedor</th><th>Usuário</th><th>Data/Hora</th></tr></thead>
-          <tbody id="log-body"></tbody>
-        </table>
-      </div>
-      <div style="margin-top:12px;display:flex;gap:8px">
-        <button class="btn btn-secondary" style="width:auto" onclick="exportExcel()">📊 Exportar Excel</button>
-        <button class="btn btn-danger" style="width:auto;display:none" id="btn-clear-log" onclick="clearLog()">🗑 Limpar Histórico</button>
+      <div class="tbl-wrap">
+        <div class="tbl-scroll">
+          <table class="data" id="log-table">
+            <thead><tr><th>Série</th><th>Palete</th><th>Código</th><th>Produto</th><th>Qtd</th><th>Peso</th><th>Lote</th><th>Val.</th><th>Nota</th><th>Fornecedor</th><th>Usuário</th><th>Data/Hora</th></tr></thead>
+            <tbody id="log-body"></tbody>
+          </table>
+        </div>
+        <div class="tbl-foot">
+          <button class="btn btn-secondary btn-sm" onclick="exportExcel()">📊 Exportar Excel</button>
+          <button class="btn btn-danger btn-sm" style="display:none" id="btn-clear-log" onclick="clearLog()">🗑 Limpar Histórico</button>
+        </div>
       </div>
     </div>
 
     <!-- PRODUTOS (ADMIN) -->
     <div id="tab-produtos" style="display:none">
-      <div class="section-title">Adicionar / Editar Produto</div>
-      <div class="row-3" style="align-items:end">
-        <div class="field-group">
-          <label>Código</label>
-          <input type="text" id="adm-codigo" maxlength="15" placeholder="PA000999" style="font-family:'DM Mono',monospace">
+      <div class="sec-card" style="margin-bottom:16px">
+        <div class="sec-head">
+          <div class="sec-ico">✏️</div>
+          <div><h3>Adicionar / Editar Produto</h3><small>Manutenção individual do catálogo</small></div>
         </div>
-        <div class="field-group" style="grid-column:span 2">
-          <label>Descrição</label>
-          <input type="text" id="adm-desc" maxlength="60" placeholder="DESCRIÇÃO DO PRODUTO">
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:12px;align-items:end">
+          <div class="field-group">
+            <label>Código</label>
+            <input type="text" id="adm-codigo" maxlength="15" placeholder="PA000999" style="font-family:'DM Mono',monospace">
+          </div>
+          <div class="field-group">
+            <label>Descrição</label>
+            <input type="text" id="adm-desc" maxlength="60" placeholder="DESCRIÇÃO DO PRODUTO">
+          </div>
         </div>
-      </div>
-      <button class="btn btn-print" style="width:auto;padding:10px 20px" id="btn-adm-save" onclick="admSaveProduto()">➕ Adicionar Produto</button>
-
-      <div class="section-title">Importação em Massa (colar do Excel)</div>
-      <p style="font-size:11px;color:var(--muted);margin-bottom:8px">Cole aqui as linhas copiadas do Excel — uma por linha, no formato <b>CÓDIGO [tab ou ;] DESCRIÇÃO</b>. Códigos já existentes serão atualizados.</p>
-      <textarea class="bulk" id="bulk-import" placeholder="PA000101	FARINHA DE TRIGO 25KG&#10;PA000102;ACUCAR CRISTAL 50KG"></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        <button class="btn btn-print" style="width:auto;padding:10px 20px" onclick="bulkImport()">📥 Importar Lista</button>
-        <button class="btn btn-secondary" style="width:auto;padding:10px 20px" onclick="exportProdutosBackup()">💾 Backup (.json)</button>
-        <label class="btn btn-secondary" style="width:auto;padding:10px 20px;cursor:pointer">📂 Restaurar Backup<input type="file" accept=".json" style="display:none" onchange="importProdutosBackup(this)"></label>
-        <button class="btn btn-danger" style="width:auto;padding:10px 20px" onclick="restaurarBase()">↺ Restaurar Catálogo Original</button>
+        <button class="btn btn-print btn-sm" id="btn-adm-save" onclick="admSaveProduto()" style="margin-top:4px">➕ Adicionar Produto</button>
       </div>
 
-      <div class="section-title">Catálogo (<span id="prod-count">0</span> produtos)</div>
-      <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="adm-filter" placeholder="Filtrar catálogo..." oninput="renderProdutos()">
+      <div class="sec-card" style="margin-bottom:16px">
+        <div class="sec-head">
+          <div class="sec-ico green">📥</div>
+          <div><h3>Importação em Massa</h3><small>Cole direto do Excel</small></div>
+        </div>
+        <p class="hint">Cole as linhas copiadas do Excel — uma por linha, no formato <b>CÓDIGO [tab ou ;] DESCRIÇÃO</b>. Códigos já existentes serão atualizados.</p>
+        <textarea class="bulk" id="bulk-import" placeholder="PA000101	FARINHA DE TRIGO 25KG&#10;PA000102;ACUCAR CRISTAL 50KG"></textarea>
+        <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn btn-print btn-sm" onclick="bulkImport()">📥 Importar Lista</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportProdutosBackup()">💾 Backup (.json)</button>
+          <label class="btn btn-secondary btn-sm" style="cursor:pointer">📂 Restaurar Backup<input type="file" accept=".json" style="display:none" onchange="importProdutosBackup(this)"></label>
+          <button class="btn btn-danger btn-sm" onclick="restaurarBase()">↺ Restaurar Catálogo Original</button>
+        </div>
       </div>
-      <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
-        <table class="data">
-          <thead><tr><th>Código</th><th>Descrição</th><th style="width:70px">Ações</th></tr></thead>
-          <tbody id="prod-body"></tbody>
-        </table>
+
+      <div class="tbl-wrap">
+        <div style="padding:16px 16px 0">
+          <div class="sec-head" style="margin-bottom:12px">
+            <div class="sec-ico gray">🗂</div>
+            <div><h3>Catálogo (<span id="prod-count">0</span> produtos)</h3><small>Clique em ✏️ para editar ou 🗑 para excluir</small></div>
+          </div>
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="adm-filter" placeholder="Filtrar catálogo..." oninput="renderProdutos()">
+          </div>
+        </div>
+        <div class="tbl-scroll">
+          <table class="data">
+            <thead><tr><th>Código</th><th>Descrição</th><th style="width:80px">Ações</th></tr></thead>
+            <tbody id="prod-body"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -554,6 +668,7 @@ function buildQrString(d, serie) {
 function generateQR(d, serie) {
   const c = document.getElementById('qr-preview-container');
   c.innerHTML = '';
+  if (typeof QRCode === 'undefined') { c.innerHTML = '<div style="font-size:10px;color:#999;text-align:center;padding:30px 10px">QR indisponível<br>verifique a internet<br>e recarregue (F5)</div>'; return; }
   new QRCode(c, {
     text: buildQrString(d, serie) || 'EtiquetaPro',
     width: 400, height: 400,
@@ -562,6 +677,7 @@ function generateQR(d, serie) {
   });
 }
 function qrDataUrl(text) {
+  if (typeof QRCode === 'undefined') { showToast('⚠ QR indisponível — sem internet? Recarregue (F5)', '#e05a2b'); return ''; }
   const holder = document.getElementById('qr-hidden');
   holder.innerHTML = '';
   new QRCode(holder, { text, width: 800, height: 800, colorDark: '#111', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
