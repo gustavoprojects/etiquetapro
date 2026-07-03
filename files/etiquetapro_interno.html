@@ -688,11 +688,12 @@ function qrDataUrl(text) {
 // ══════════════ PREVIEW ══════════════
 function calcDescFontSize(text) {
   const len = (text || '').length;
-  if (len <= 12) return '95px';
-  if (len <= 20) return '78px';
-  if (len <= 30) return '62px';
-  if (len <= 40) return '50px';
-  return '42px';
+  if (len <= 12) return '110px';
+  if (len <= 20) return '92px';
+  if (len <= 30) return '72px';
+  if (len <= 42) return '58px';
+  if (len <= 52) return '50px';
+  return '44px';
 }
 function calcLoteFontSize(text) {
   const len = (text || '').length;
@@ -736,10 +737,10 @@ const FOLHA_CSS = `
     .emit{font-size:10px;color:#aaa;text-align:right;line-height:1.8}
     .emit strong{color:#555;font-weight:700}
     .pill{background:#1a1a2e;color:white;padding:7px 20px;border-radius:6px;font-size:15px;font-weight:800;letter-spacing:.5px}
-    .body-grid{display:flex;gap:5mm;flex:1;min-height:0}
-    .col-info{flex:1.55;display:flex;flex-direction:column;gap:3mm;min-width:0}
     .info-block{padding:8px 16px;border-radius:0 10px 10px 0;display:flex;flex-direction:column;justify-content:center;min-height:0}
-    .info-block.produto{background:#f5f5f5;border-left:10px solid #1a1a2e;flex:1.4}
+    .info-block.produto{background:#f5f5f5;border-left:10px solid #1a1a2e;flex:1.15;flex-shrink:0;padding:8px 20px}
+    .body-grid{display:flex;gap:5mm;flex:1.85;min-height:0}
+    .col-info{flex:1.7;display:flex;flex-direction:column;gap:3mm;min-width:0}
     .info-block.lote{background:#e6f2ff;border-left:10px solid #2e86d4;flex:1.1}
     .info-block.forn{background:#eefbf2;border-left:10px solid #1da868;flex:.9}
     .block-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:3px;color:#555}
@@ -755,8 +756,8 @@ const FOLHA_CSS = `
     .card.validade .card-lbl::before{content:'⚠  '}
     .card.validade .card-val{font-size:58px}
     .val-sub{font-size:9px;color:#c08000;margin-top:3px;font-weight:600}
-    .col-qr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed #ccc;border-radius:12px;padding:4mm;gap:2mm}
-    .qr-img{width:100%;max-width:110mm;max-height:110mm;aspect-ratio:1/1;object-fit:contain}
+    .col-qr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;border:2px dashed #ccc;border-radius:12px;padding:3mm;gap:2mm}
+    .qr-img{width:100%;max-width:80mm;max-height:80mm;aspect-ratio:1/1;object-fit:contain}
     .qr-cod{font-family:'Courier New',monospace;font-size:16px;font-weight:900;letter-spacing:4px;color:#111}
     .qr-serie{font-family:'Courier New',monospace;font-size:13px;color:#0055cc;font-weight:700}
     .qr-palete{font-size:13px;font-weight:900;color:#1a1a2e;background:#f0f0f0;border:1.5px solid #ccc;border-radius:6px;padding:3px 14px}`;
@@ -778,12 +779,12 @@ function buildFolhaPage(d, serie, qrImg, now, paleteLabel) {
         <div class="pill">USO INTERNO</div>
       </div>
     </div>
+    <div class="info-block produto">
+      <div class="block-label">Produto</div>
+      <div class="block-value" style="font-size:${calcDescFontSize(d.descricao)}">${d.descricao}</div>
+    </div>
     <div class="body-grid">
       <div class="col-info">
-        <div class="info-block produto">
-          <div class="block-label">Produto</div>
-          <div class="block-value" style="font-size:${calcDescFontSize(d.descricao)}">${d.descricao}</div>
-        </div>
         <div class="info-block lote">
           <div class="block-label">Lote</div>
           <div class="block-value" style="font-size:${calcLoteFontSize(d.lote)}">${d.lote}</div>
