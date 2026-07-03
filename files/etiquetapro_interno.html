@@ -385,7 +385,7 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
             </div>
           </div>
         </div>
-        <p class="qr-legend">O QR Code compõe: <b>Código;Descrição;Lote;Quantidade;Peso;Validade;Série;Nota/Pedido;Fornecedor</b></p>
+        <p class="qr-legend">O QR Code compõe: <b>Código;Descrição;Lote;Validade;Quantidade;Série;Peso;Nota/Pedido;Fornecedor</b></p>
       </div>
     </div>
 
@@ -661,9 +661,9 @@ function clearForm() {
 }
 
 // ══════════════ QR CODE ══════════════
-// Ordem: Código;Descrição;Lote;Quantidade;Peso;Validade;Série;Nota;Fornecedor
+// Ordem: Código;Descrição;Lote;Validade;Quantidade;Série;Peso;Nota;Fornecedor
 function buildQrString(d, serie) {
-  return [d.codigo, d.descricao, d.lote, d.quantidade, d.peso, d.validade, serie, d.nota, d.fornecedor].join(';');
+  return [d.codigo, d.descricao, d.lote, d.validade, d.quantidade, serie, d.peso, d.nota, d.fornecedor].join(';');
 }
 function generateQR(d, serie) {
   const c = document.getElementById('qr-preview-container');
