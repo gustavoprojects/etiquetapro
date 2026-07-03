@@ -230,7 +230,21 @@ textarea.bulk:focus{border-color:var(--accent)}
       </div>
     </div>
 
-    <div class="section-title">03 — Ações</div>
+    <div class="section-title">03 — Paletização / Impressão em Lote</div>
+    <div class="row-2">
+      <div class="field-group">
+        <label>Qtd Total Recebida</label>
+        <input type="number" id="field-lote-total" min="0" placeholder="Ex: 1800" oninput="updateLoteCalc('total')">
+      </div>
+      <div class="field-group">
+        <label>Nº de Folhas / Paletes</label>
+        <input type="number" id="field-lote-folhas" min="0" placeholder="Ex: 45" oninput="updateLoteCalc('folhas')">
+      </div>
+    </div>
+    <div id="lote-resumo" style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Informe a quantidade <b>por palete</b> no campo Quantidade acima e a <b>quantidade total</b> aqui (as folhas são calculadas) — ou informe direto o nº de folhas.</div>
+    <button class="btn btn-print" id="btn-lote" style="background:var(--success);margin-bottom:14px" onclick="printLote()">🖨 Imprimir Lote</button>
+
+    <div class="section-title">04 — Ações</div>
     <div class="serie-box">
       <span class="lbl">Próxima Série</span>
       <span class="val" id="serie-display">EST000001</span>
@@ -284,7 +298,7 @@ textarea.bulk:focus{border-color:var(--accent)}
     <div id="tab-log" style="display:none">
       <div style="overflow-x:auto">
         <table class="data" id="log-table">
-          <thead><tr><th>Série</th><th>Código</th><th>Produto</th><th>Qtd</th><th>Peso</th><th>Lote</th><th>Val.</th><th>Nota</th><th>Fornecedor</th><th>Usuário</th><th>Data/Hora</th></tr></thead>
+          <thead><tr><th>Série</th><th>Palete</th><th>Código</th><th>Produto</th><th>Qtd</th><th>Peso</th><th>Lote</th><th>Val.</th><th>Nota</th><th>Fornecedor</th><th>Usuário</th><th>Data/Hora</th></tr></thead>
           <tbody id="log-body"></tbody>
         </table>
       </div>
@@ -527,6 +541,8 @@ function clearForm() {
   document.getElementById('field-qty').value = '1';
   document.getElementById('field-lote').value = '';
   document.getElementById('field-validade').value = '';
+  document.getElementById('field-lote-total').value = '';
+  document.getElementById('field-lote-folhas').value = '';
   updatePreview();
 }
 
@@ -581,23 +597,17 @@ function updatePreview() {
   document.getElementById('prev-nota').textContent = d.nota;
   document.getElementById('prev-validade').textContent = d.validade;
   refreshSerieDisplay();
+  refreshLote();
   generateQR(d, peekSerie());
 }
 
-// ══════════════ IMPRESSÃO — FOLHA ÚNICA A4 (INFO + QR) ══════════════
-function printFolha() {
-  const d = validate();
-  if (!d) return;
-  const serie = getNextSerie();
-  const qrImg = qrDataUrl(buildQrString(d, serie));
-  const now = new Date().toLocaleString('pt-BR');
-  const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>USO INTERNO — ${d.codigo} — ${serie}</title>
-  <style>
+// ══════════════ IMPRESSÃO — FOLHA A4 (INFO + QR) — única ou em lote ══════════════
+const FOLHA_CSS = `
     @page{size:A4 landscape;margin:6mm}
     *{box-sizing:border-box;margin:0;padding:0}
-    html,body{width:100%;height:100%;font-family:Arial,sans-serif;background:white}
-    .page{background:white;width:100%;height:100vh;padding:5mm 7mm;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:3mm}
+    html,body{width:100%;font-family:Arial,sans-serif;background:white}
+    .page{background:white;width:100%;height:100vh;padding:5mm 7mm;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:3mm;page-break-after:always}
+    .page:last-child{page-break-after:auto}
     .page::before{content:'REINO ALIMENTOS';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:86px;font-weight:900;color:rgba(0,0,0,.028);white-space:nowrap;pointer-events:none;letter-spacing:6px;z-index:0}
     .page > *{position:relative;z-index:1}
     .hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:3mm;border-bottom:2.5px solid #1a1a2e;flex-shrink:0}
@@ -630,10 +640,13 @@ function printFolha() {
     .card.validade .card-val{font-size:58px}
     .val-sub{font-size:9px;color:#c08000;margin-top:3px;font-weight:600}
     .col-qr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed #ccc;border-radius:12px;padding:4mm;gap:2mm}
-    .qr-img{width:100%;max-width:118mm;max-height:118mm;aspect-ratio:1/1;object-fit:contain}
+    .qr-img{width:100%;max-width:110mm;max-height:110mm;aspect-ratio:1/1;object-fit:contain}
     .qr-cod{font-family:'Courier New',monospace;font-size:16px;font-weight:900;letter-spacing:4px;color:#111}
     .qr-serie{font-family:'Courier New',monospace;font-size:13px;color:#0055cc;font-weight:700}
-  </style></head><body>
+    .qr-palete{font-size:13px;font-weight:900;color:#1a1a2e;background:#f0f0f0;border:1.5px solid #ccc;border-radius:6px;padding:3px 14px}`;
+
+function buildFolhaPage(d, serie, qrImg, now, paleteLabel) {
+  return `
   <div class="page">
     <div class="hdr">
       <div class="logo-wrap">
@@ -661,7 +674,7 @@ function printFolha() {
         </div>
         <div class="info-block forn">
           <div class="block-label">Fornecedor</div>
-          <div class="block-value" style="font-size:${calcDescFontSize(d.fornecedor)}; font-size:${(d.fornecedor.length<=20)?'42px':(d.fornecedor.length<=32)?'32px':'26px'}">${d.fornecedor}</div>
+          <div class="block-value" style="font-size:${(d.fornecedor.length<=20)?'42px':(d.fornecedor.length<=32)?'32px':'26px'}">${d.fornecedor}</div>
         </div>
         <div class="cards">
           <div class="card" style="grid-column:span 2"><div class="card-lbl">Código</div><div class="card-val" style="font-size:46px;white-space:nowrap">${d.codigo}</div></div>
@@ -679,34 +692,116 @@ function printFolha() {
         <img class="qr-img" src="${qrImg}" alt="QR">
         <div class="qr-cod">${d.codigo}</div>
         <div class="qr-serie">Série ${serie}</div>
+        ${paleteLabel ? `<div class="qr-palete">📦 ${paleteLabel}</div>` : ''}
       </div>
     </div>
-  </div>
-  </body></html>`;
+  </div>`;
+}
+
+function printDoc(title, pagesHtml) {
+  const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${FOLHA_CSS}</style></head><body>${pagesHtml}</body></html>`;
   const frame = document.getElementById('print-frame');
   frame.srcdoc = docHtml;
   frame.onload = () => {
     setTimeout(() => { frame.contentWindow.focus(); frame.contentWindow.print(); }, 300);
   };
-  addLog(d, serie);
+}
+
+function printFolha() {
+  const d = validate();
+  if (!d) return;
+  const serie = getNextSerie();
+  const now = new Date().toLocaleString('pt-BR');
+  const qrImg = qrDataUrl(buildQrString(d, serie));
+  printDoc(`USO INTERNO — ${d.codigo} — ${serie}`, buildFolhaPage(d, serie, qrImg, now, ''));
+  addLogMany([makeLogRecord(d, serie, '—')]);
   refreshSerieDisplay();
   generateQR(d, peekSerie());
   showToast(`🖨 Imprimindo folha — Série ${serie}`);
 }
 
+// ══════════════ LOTE / PALETIZAÇÃO ══════════════
+function getLoteInfo() {
+  const per = Math.max(1, parseInt(document.getElementById('field-qty').value) || 1);
+  const total = parseInt(document.getElementById('field-lote-total').value) || 0;
+  let folhas, lastQty = per;
+  if (total > 0) {
+    folhas = Math.ceil(total / per);
+    lastQty = total - per * (folhas - 1);
+  } else {
+    folhas = parseInt(document.getElementById('field-lote-folhas').value) || 0;
+  }
+  return { per, total, folhas, lastQty };
+}
+function updateLoteCalc(src) {
+  if (src === 'folhas') document.getElementById('field-lote-total').value = '';
+  refreshLote();
+}
+function refreshLote() {
+  const el = document.getElementById('lote-resumo');
+  if (!el) return;
+  const { per, total, folhas, lastQty } = getLoteInfo();
+  if (total > 0) document.getElementById('field-lote-folhas').value = folhas;
+  const btn = document.getElementById('btn-lote');
+  if (folhas >= 1) {
+    let txt;
+    if (total > 0 && lastQty !== per) {
+      txt = `<b>${folhas} folhas</b>: ${folhas - 1} palete(s) × ${per} + último palete com <b>${lastQty}</b> (total ${total})`;
+    } else {
+      txt = `<b>${folhas} folhas</b> × ${per} por palete` + (total > 0 ? ` (total ${total})` : ` (total ${folhas * per})`);
+    }
+    el.innerHTML = `📦 ${txt} — séries a partir de <b>${peekSerie()}</b>`;
+    btn.textContent = `🖨 Imprimir Lote (${folhas} folhas)`;
+  } else {
+    el.innerHTML = 'Informe a quantidade <b>por palete</b> no campo Quantidade acima e a <b>quantidade total</b> aqui (as folhas são calculadas) — ou informe direto o nº de folhas.';
+    btn.textContent = '🖨 Imprimir Lote';
+  }
+}
+function printLote() {
+  const d = validate();
+  if (!d) return;
+  const { per, total, folhas, lastQty } = getLoteInfo();
+  if (folhas < 1)   { showToast('⚠ Informe a Qtd Total ou o Nº de Folhas!', '#e05a2b'); return; }
+  if (folhas > 300) { showToast('⚠ Máximo de 300 folhas por lote!', '#e05a2b'); return; }
+  const primeira = peekSerie();
+  if (!confirm(`Imprimir ${folhas} folhas, cada uma com série própria (a partir de ${primeira})?`)) return;
+  const now = new Date().toLocaleString('pt-BR');
+  const pages = [], logs = [];
+  let serie = '';
+  for (let i = 1; i <= folhas; i++) {
+    const qty = (i === folhas) ? lastQty : per;
+    const di = Object.assign({}, d, { quantidade: String(qty) });
+    serie = getNextSerie();
+    const qrImg = qrDataUrl(buildQrString(di, serie));
+    pages.push(buildFolhaPage(di, serie, qrImg, now, `Palete ${i} de ${folhas}`));
+    logs.push(makeLogRecord(di, serie, `${i}/${folhas}`));
+  }
+  printDoc(`USO INTERNO — LOTE ${folhas}x — ${d.codigo}`, pages.join(''));
+  addLogMany(logs);
+  document.getElementById('field-lote-total').value = '';
+  document.getElementById('field-lote-folhas').value = '';
+  refreshSerieDisplay();
+  refreshLote();
+  generateQR(d, peekSerie());
+  showToast(`🖨 Imprimindo ${folhas} folhas — séries ${primeira} a ${serie}`);
+}
+
 // ══════════════ HISTÓRICO ══════════════
 function loadLog() { try { return JSON.parse(localStorage.getItem('est-log') || '[]'); } catch(e) { return []; } }
 function saveLog(l) { try { localStorage.setItem('est-log', JSON.stringify(l)); } catch(e){} }
-function addLog(d, serie) {
-  const l = loadLog();
-  l.unshift({
-    serie, codigo: d.codigo, descricao: d.descricao, quantidade: d.quantidade,
+function makeLogRecord(d, serie, palete) {
+  return {
+    serie, palete: palete || '—', codigo: d.codigo, descricao: d.descricao, quantidade: d.quantidade,
     peso: d.peso, lote: d.lote, validade: d.validade, nota: d.nota, fornecedor: d.fornecedor,
     usuario: currentSession ? currentSession.nome : '—',
     turno: currentSession ? currentSession.turno : '—',
     timestamp: new Date().toLocaleString('pt-BR')
-  });
-  saveLog(l.slice(0, 2000));
+  };
+}
+function addLogMany(records) {
+  const l = loadLog();
+  for (let i = records.length - 1; i >= 0; i--) l.unshift(records[i]);
+  saveLog(l.slice(0, 3000));
   renderLog();
 }
 function renderLog() {
@@ -714,6 +809,7 @@ function renderLog() {
   document.getElementById('log-count').textContent = l.length;
   document.getElementById('log-body').innerHTML = l.slice(0, 200).map(r => `<tr>
     <td style="font-family:'DM Mono',monospace;color:var(--accent)">${r.serie}</td>
+    <td>${r.palete || '—'}</td>
     <td>${r.codigo}</td><td>${r.descricao}</td><td>${r.quantidade}</td><td>${r.peso}</td>
     <td>${r.lote}</td><td>${r.validade}</td><td>${r.nota}</td><td>${r.fornecedor}</td>
     <td>${r.usuario}</td><td style="white-space:nowrap">${r.timestamp}</td></tr>`).join('');
@@ -726,11 +822,11 @@ function clearLog() {
 function exportExcel() {
   const data = loadLog();
   if (!data.length) { showToast('Nenhum registro para exportar!', '#e05a2b'); return; }
-  const rows = [['Série','Código','Produto','Quantidade','Peso','Lote','Validade','Nota/Pedido','Fornecedor','Usuário','Turno','Timestamp']];
-  data.forEach(r => rows.push([r.serie, r.codigo, r.descricao, r.quantidade, r.peso, r.lote, r.validade, r.nota, r.fornecedor, r.usuario || '—', r.turno || '—', r.timestamp || '']));
+  const rows = [['Série','Palete','Código','Produto','Quantidade','Peso','Lote','Validade','Nota/Pedido','Fornecedor','Usuário','Turno','Timestamp']];
+  data.forEach(r => rows.push([r.serie, r.palete || '—', r.codigo, r.descricao, r.quantidade, r.peso, r.lote, r.validade, r.nota, r.fornecedor, r.usuario || '—', r.turno || '—', r.timestamp || '']));
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:11},{wch:12},{wch:40},{wch:10},{wch:12},{wch:22},{wch:10},{wch:14},{wch:30},{wch:18},{wch:10},{wch:20}];
+  ws['!cols'] = [{wch:11},{wch:8},{wch:12},{wch:40},{wch:10},{wch:12},{wch:22},{wch:10},{wch:14},{wch:30},{wch:18},{wch:10},{wch:20}];
   XLSX.utils.book_append_sheet(wb, ws, 'Uso_Interno');
   XLSX.writeFile(wb, `reino_uso_interno_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.xlsx`);
   showToast('📊 Planilha exportada!');
