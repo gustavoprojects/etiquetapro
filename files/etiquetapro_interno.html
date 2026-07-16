@@ -345,6 +345,11 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
         <span class="lbl">Próxima Série</span>
         <span class="val" id="serie-display">EST000001</span>
       </div>
+      <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <input type="checkbox" id="sp-enviar" checked onchange="saveSPToggle()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
+        <label for="sp-enviar" style="font-size:12px;font-weight:700;cursor:pointer">☁ Registrar no SharePoint ao imprimir</label>
+        <span id="sp-status" style="font-size:10px;color:var(--muted);margin-left:auto"></span>
+      </div>
       <div class="actions">
         <button class="btn btn-print" onclick="printFolha()">🖨 Imprimir Folha A4 + QR</button>
         <button class="btn btn-secondary" onclick="exportExcel()">📊 Exportar Histórico (.xlsx)</button>
@@ -905,7 +910,9 @@ function printFolha() {
   const now = new Date().toLocaleString('pt-BR');
   const qrImg = qrDataUrl(buildQrString(d, serie));
   printDoc(`USO INTERNO — ${d.codigo} — ${serie}`, buildFolhaPage(d, serie, qrImg, now, ''));
-  addLogMany([makeLogRecord(d, serie, '—')]);
+  const _rec = makeLogRecord(d, serie, '—');
+  addLogMany([_rec]);
+  enviarRegistrosSP([_rec]);
   refreshSerieDisplay();
   generateQR(d, peekSerie());
   showToast(`🖨 Imprimindo folha — Série ${serie}`);
@@ -969,12 +976,60 @@ function printLote() {
   }
   printDoc(`USO INTERNO — LOTE ${folhas}x — ${d.codigo}`, pages.join(''));
   addLogMany(logs);
+  enviarRegistrosSP(logs);
   document.getElementById('field-lote-total').value = '';
   document.getElementById('field-lote-folhas').value = '';
   refreshSerieDisplay();
   refreshLote();
   generateQR(d, peekSerie());
   showToast(`🖨 Imprimindo ${folhas} folhas — séries ${primeira} a ${serie}`);
+}
+
+// ══════════════ POWER AUTOMATE → SHAREPOINT (Recebimento_Interno) ══════════════
+// Fluxo: RECEBIMENTO_INTERNO — gatilho HTTP com schema JSON (CORS ok, testado)
+const PA_URL_RECEBIMENTO = 'https://default6142e716d6e94577a712609139a997.3f.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/28/workflows/b412be4954124d6a90a44a9d9457b248/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ltdsQ9DQaFhvBDJkhQii5DhHggXGOXHagXnbcdgG3uU';
+function spEnviarAtivo() { return localStorage.getItem('est-sp-enviar') !== '0'; }
+function saveSPToggle() {
+  const on = document.getElementById('sp-enviar').checked;
+  localStorage.setItem('est-sp-enviar', on ? '1' : '0');
+  showToast(on ? '☁ Registro no SharePoint ativado' : '🔕 Registro no SharePoint desativado', on ? '#3dd68c' : '#f0a000');
+}
+function spPayload(rec) {
+  const mp = isMPCode(rec.codigo);
+  return {
+    data:        rec.timestamp || new Date().toLocaleString('pt-BR'),
+    codigo:      rec.codigo,
+    produto:     rec.descricao,
+    lote:        rec.lote,
+    quantidade:  parseNum(rec.quantidade),
+    kg_por_unid: mp ? parseNum(rec.kgUnid) : null,
+    peso:        rec.peso,
+    fornecedor:  rec.fornecedor,
+    nota_pedido: rec.nota,
+    serie:       rec.serie,
+    palete:      rec.palete || '—',
+    validade:    rec.validade,
+    turno:       rec.turno || '—',
+    usuario:     rec.usuario || '—'
+  };
+}
+async function enviarRegistrosSP(records) {
+  if (!spEnviarAtivo()) return;
+  const st = document.getElementById('sp-status');
+  let ok = 0, falha = 0;
+  for (const rec of records) {
+    try {
+      const r = await fetch(PA_URL_RECEBIMENTO, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(spPayload(rec))
+      });
+      if (r.ok || r.status === 202) ok++; else falha++;
+    } catch(e) { falha++; }
+    if (st) st.textContent = `enviando ${ok + falha}/${records.length}...`;
+  }
+  if (st) st.textContent = falha ? `⚠ ${falha} falha(s)` : `✅ ${ok} registrado(s)`;
+  if (falha) showToast(`⚠ ${falha} registro(s) não enviados ao SharePoint — ficaram só no histórico local`, '#e05a2b');
 }
 
 // ══════════════ HISTÓRICO ══════════════
@@ -1160,6 +1215,8 @@ function toggleTheme() {
 }
 (function boot() {
   document.documentElement.setAttribute('data-theme', localStorage.getItem('est-theme') || 'dark');
+  const _sp = document.getElementById('sp-enviar');
+  if (_sp) _sp.checked = spEnviarAtivo();
   refreshSerieDisplay();
   renderLog();
   updatePreview();
