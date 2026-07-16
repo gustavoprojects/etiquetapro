@@ -289,7 +289,7 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
           <input type="text" id="field-nota" maxlength="20" placeholder="Ex: 123456" oninput="updatePreview()">
         </div>
         <div class="field-group">
-          <label>Peso</label>
+          <label id="lbl-peso">Peso</label>
           <input type="text" id="field-peso" maxlength="15" placeholder="Ex: 25,5 KG" oninput="updatePreview()">
         </div>
       </div>
@@ -300,6 +300,10 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
           <input type="number" id="field-qty" value="1" min="1" oninput="updatePreview()">
           <button class="qty-btn" onclick="changeQty(1)">+</button>
         </div>
+      </div>
+      <div id="mp-total-chip" class="serie-box" style="display:none;background:linear-gradient(135deg, rgba(52,211,153,.14), rgba(14,165,164,.14));border-color:color-mix(in srgb, var(--success) 40%, var(--border))">
+        <span class="lbl">⚖ Peso Total (Qtd × Kg/Unid)</span>
+        <span class="val" id="mp-total-val" style="background:var(--grad-success);-webkit-background-clip:text;background-clip:text;color:transparent">—</span>
       </div>
       <div class="row-2">
         <div class="field-group">
@@ -374,7 +378,7 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
               <div class="mini-grid">
                 <div class="mini-cell" style="grid-column:span 2"><div class="bl">Código</div><div class="bv" id="prev-codigo" style="font-size:16px">—</div></div>
                 <div class="mini-cell"><div class="bl">Qtd</div><div class="bv" id="prev-qty">1</div></div>
-                <div class="mini-cell"><div class="bl">Peso</div><div class="bv" id="prev-peso" style="font-size:11px">—</div></div>
+                <div class="mini-cell"><div class="bl" id="prev-peso-lbl">Peso</div><div class="bv" id="prev-peso" style="font-size:11px">—</div></div>
                 <div class="mini-cell mini-val" style="grid-column:span 2"><div class="bl">⚠ Validade</div><div class="bv" id="prev-validade">—</div></div>
                 <div class="mini-cell" style="grid-column:span 2"><div class="bl">Nota/Pedido</div><div class="bv" id="prev-nota">—</div></div>
               </div>
@@ -385,7 +389,7 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
             </div>
           </div>
         </div>
-        <p class="qr-legend">O QR Code compõe: <b>Código;Descrição;Lote;Validade;Quantidade;Série;Peso;Nota/Pedido;Fornecedor</b></p>
+        <p class="qr-legend">O QR Code compõe: <b>Código;Descrição;Lote;Validade;Quantidade;Série;Peso;Nota/Pedido;Fornecedor</b><br>Produtos <b>MP</b>: Quantidade no QR = <b>Peso Total</b> (Qtd × Kg/Unid) e Peso no QR = <b>Kg por Unidade</b></p>
       </div>
     </div>
 
@@ -394,7 +398,7 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
       <div class="tbl-wrap">
         <div class="tbl-scroll">
           <table class="data" id="log-table">
-            <thead><tr><th>Série</th><th>Palete</th><th>Código</th><th>Produto</th><th>Qtd</th><th>Peso</th><th>Lote</th><th>Val.</th><th>Nota</th><th>Fornecedor</th><th>Usuário</th><th>Data/Hora</th></tr></thead>
+            <thead><tr><th>Série</th><th>Palete</th><th>Código</th><th>Produto</th><th>Qtd</th><th>Peso</th><th>Kg/Unid</th><th>Peso Total</th><th>Lote</th><th>Val.</th><th>Nota</th><th>Fornecedor</th><th>Usuário</th><th>Data/Hora</th></tr></thead>
             <tbody id="log-body"></tbody>
           </table>
         </div>
@@ -639,6 +643,8 @@ function validate() {
   if (d.fornecedor === '—')    { showToast('⚠ Informe o Fornecedor!', '#e05a2b'); return null; }
   if (d.nota === '—')          { showToast('⚠ Informe o Nº da Nota ou Pedido!', '#e05a2b'); return null; }
   if (d.peso === '—')          { showToast('⚠ Informe o Peso!', '#e05a2b'); return null; }
+  if (isMPCode(d.codigo) && !(parseNum(d.peso) > 0)) { showToast('⚠ Produto MP: informe o KG por Unidade (número)!', '#e05a2b'); return null; }
+  if (isMPCode(d.codigo) && !(parseNum(d.quantidade) > 0)) { showToast('⚠ Produto MP: informe a Quantidade em volumes!', '#e05a2b'); return null; }
   if (d.lote === '—')          { showToast('⚠ Informe o Lote!', '#e05a2b'); return null; }
   if (d.validade.length < 5)   { showToast('⚠ Informe a Validade (MM/AA)!', '#e05a2b'); return null; }
   return d;
@@ -660,9 +666,42 @@ function clearForm() {
   updatePreview();
 }
 
+// ══════════════ MP (matéria-prima por peso) ══════════════
+function isMPCode(c) { return /^MP/i.test(String(c || '').trim()); }
+function parseNum(v) {
+  v = String(v == null ? '' : v).trim().replace(/[^\d.,\-]/g, '');
+  if (v.includes(',')) v = v.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+function fmtNum(n) { return (Math.round(n * 100) / 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 }); }
+function qrNum(n) { return String(Math.round(n * 100) / 100).replace('.', ','); }
+function refreshMPUI(d) {
+  const mp = isMPCode(d.codigo);
+  const lbl = document.getElementById('lbl-peso');
+  const inp = document.getElementById('field-peso');
+  const chip = document.getElementById('mp-total-chip');
+  if (lbl) lbl.textContent = mp ? 'KG por Unidade' : 'Peso';
+  if (inp) inp.placeholder = mp ? 'Ex: 25' : 'Ex: 25,5 KG';
+  if (chip) {
+    if (mp) {
+      document.getElementById('mp-total-val').textContent = fmtNum(parseNum(d.quantidade) * parseNum(d.peso)) + ' KG';
+      chip.style.display = 'flex';
+    } else chip.style.display = 'none';
+  }
+  const pl = document.getElementById('prev-peso-lbl');
+  if (pl) pl.textContent = mp ? 'Peso Total' : 'Peso';
+}
+
 // ══════════════ QR CODE ══════════════
 // Ordem: Código;Descrição;Lote;Validade;Quantidade;Série;Peso;Nota;Fornecedor
+// Produtos MP: posição Quantidade = PESO TOTAL (qtd × kg/unid); posição Peso = KG por unidade
 function buildQrString(d, serie) {
+  if (isMPCode(d.codigo)) {
+    const kgU = parseNum(d.peso);
+    const pTot = parseNum(d.quantidade) * kgU;
+    return [d.codigo, d.descricao, d.lote, d.validade, qrNum(pTot), serie, qrNum(kgU), d.nota, d.fornecedor].join(';');
+  }
   return [d.codigo, d.descricao, d.lote, d.validade, d.quantidade, serie, d.peso, d.nota, d.fornecedor].join(';');
 }
 function generateQR(d, serie) {
@@ -710,7 +749,8 @@ function updatePreview() {
   document.getElementById('prev-fornecedor').textContent = d.fornecedor;
   document.getElementById('prev-codigo').textContent = d.codigo;
   document.getElementById('prev-qty').textContent = d.quantidade;
-  document.getElementById('prev-peso').textContent = d.peso;
+  document.getElementById('prev-peso').textContent = isMPCode(d.codigo) ? fmtNum(parseNum(d.quantidade) * parseNum(d.peso)) + ' KG' : d.peso;
+  refreshMPUI(d);
   document.getElementById('prev-nota').textContent = d.nota;
   document.getElementById('prev-validade').textContent = d.validade;
   refreshSerieDisplay();
@@ -756,6 +796,9 @@ const FOLHA_CSS = `
     .card.validade .card-lbl::before{content:'⚠  '}
     .card.validade .card-val{font-size:58px}
     .val-sub{font-size:9px;color:#c08000;margin-top:3px;font-weight:600}
+    .card.ptotal{background:#eefbf2;border:4px solid #1da868;grid-column:span 2}
+    .card.ptotal .card-lbl{color:#0f7a4a;font-size:11px}
+    .card.ptotal .val-sub{color:#0f7a4a}
     .col-qr{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;border:2px dashed #ccc;border-radius:12px;padding:3mm;gap:2mm}
     .qr-img{width:100%;max-width:80mm;max-height:80mm;aspect-ratio:1/1;object-fit:contain}
     .qr-cod{font-family:'Courier New',monospace;font-size:16px;font-weight:900;letter-spacing:4px;color:#111}
@@ -763,6 +806,37 @@ const FOLHA_CSS = `
     .qr-palete{font-size:13px;font-weight:900;color:#1a1a2e;background:#f0f0f0;border:1.5px solid #ccc;border-radius:6px;padding:3px 14px}`;
 
 function buildFolhaPage(d, serie, qrImg, now, paleteLabel) {
+  const mp = isMPCode(d.codigo);
+  const kgU = parseNum(d.peso);
+  const pTot = parseNum(d.quantidade) * kgU;
+  const cardsHtml = mp ? `
+        <div class="cards">
+          <div class="card" style="grid-column:span 2"><div class="card-lbl">Código</div><div class="card-val" style="font-size:46px;white-space:nowrap">${d.codigo}</div></div>
+          <div class="card"><div class="card-lbl">Quantidade (Vol)</div><div class="card-val">${d.quantidade}</div></div>
+          <div class="card"><div class="card-lbl">Kg por Unid</div><div class="card-val" style="font-size:24px">${fmtNum(kgU)} KG</div></div>
+          <div class="card ptotal">
+            <div class="card-lbl">⚖ Peso Total</div>
+            <div class="card-val" style="font-size:52px">${fmtNum(pTot)} KG</div>
+            <div class="val-sub">${d.quantidade} vol × ${fmtNum(kgU)} kg</div>
+          </div>
+          <div class="card validade">
+            <div class="card-lbl">Validade</div>
+            <div class="card-val" style="font-size:52px">${d.validade}</div>
+            <div class="val-sub">Verificar antes do uso</div>
+          </div>
+          <div class="card" style="grid-column:span 4"><div class="card-lbl">Nº Nota / Pedido</div><div class="card-val" style="font-size:30px">${d.nota}</div></div>
+        </div>` : `
+        <div class="cards">
+          <div class="card" style="grid-column:span 2"><div class="card-lbl">Código</div><div class="card-val" style="font-size:46px;white-space:nowrap">${d.codigo}</div></div>
+          <div class="card"><div class="card-lbl">Quantidade</div><div class="card-val">${d.quantidade}</div></div>
+          <div class="card"><div class="card-lbl">Peso</div><div class="card-val" style="font-size:26px">${d.peso}</div></div>
+          <div class="card validade">
+            <div class="card-lbl">Validade</div>
+            <div class="card-val">${d.validade}</div>
+            <div class="val-sub">Verificar antes do uso</div>
+          </div>
+          <div class="card" style="grid-column:span 2"><div class="card-lbl">Nº Nota / Pedido</div><div class="card-val" style="font-size:30px">${d.nota}</div></div>
+        </div>`;
   return `
   <div class="page">
     <div class="hdr">
@@ -781,29 +855,19 @@ function buildFolhaPage(d, serie, qrImg, now, paleteLabel) {
     </div>
     <div class="info-block produto">
       <div class="block-label">Produto</div>
-      <div class="block-value" style="font-size:${calcDescFontSize(d.descricao)}">${d.descricao}</div>
+      <div class="block-value" data-max="130" data-min="32" style="font-size:${calcDescFontSize(d.descricao)}">${d.descricao}</div>
     </div>
     <div class="body-grid">
       <div class="col-info">
         <div class="info-block lote">
           <div class="block-label">Lote</div>
-          <div class="block-value" style="font-size:${calcLoteFontSize(d.lote)}">${d.lote}</div>
+          <div class="block-value" data-max="110" data-min="28" style="font-size:${calcLoteFontSize(d.lote)}">${d.lote}</div>
         </div>
         <div class="info-block forn">
           <div class="block-label">Fornecedor</div>
-          <div class="block-value" style="font-size:${(d.fornecedor.length<=20)?'42px':(d.fornecedor.length<=32)?'32px':'26px'}">${d.fornecedor}</div>
+          <div class="block-value" data-max="52" data-min="18" style="font-size:${(d.fornecedor.length<=20)?'42px':(d.fornecedor.length<=32)?'32px':'26px'}">${d.fornecedor}</div>
         </div>
-        <div class="cards">
-          <div class="card" style="grid-column:span 2"><div class="card-lbl">Código</div><div class="card-val" style="font-size:46px;white-space:nowrap">${d.codigo}</div></div>
-          <div class="card"><div class="card-lbl">Quantidade</div><div class="card-val">${d.quantidade}</div></div>
-          <div class="card"><div class="card-lbl">Peso</div><div class="card-val" style="font-size:26px">${d.peso}</div></div>
-          <div class="card validade">
-            <div class="card-lbl">Validade</div>
-            <div class="card-val">${d.validade}</div>
-            <div class="val-sub">Verificar antes do uso</div>
-          </div>
-          <div class="card" style="grid-column:span 2"><div class="card-lbl">Nº Nota / Pedido</div><div class="card-val" style="font-size:30px">${d.nota}</div></div>
-        </div>
+        ${cardsHtml}
       </div>
       <div class="col-qr">
         <img class="qr-img" src="${qrImg}" alt="QR">
@@ -816,7 +880,17 @@ function buildFolhaPage(d, serie, qrImg, now, paleteLabel) {
 }
 
 function printDoc(title, pagesHtml) {
-  const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${FOLHA_CSS}</style></head><body>${pagesHtml}</body></html>`;
+  // Auto-ajuste: cada texto começa no tamanho máximo e reduz até caber no bloco
+  const fitJs = '<scr' + 'ipt>window.addEventListener("load",function(){' +
+    'document.querySelectorAll("[data-max]").forEach(function(el){' +
+      'var box=el.parentElement;var lbl=box.querySelector(".block-label");' +
+      'var avail=box.clientHeight-(lbl?lbl.offsetHeight:0)-12;' +
+      'if(avail<20)return;' +
+      'var s=parseInt(el.dataset.max),min=parseInt(el.dataset.min);' +
+      'el.style.lineHeight="1.12";el.style.fontSize=s+"px";' +
+      'while(s>min&&(el.scrollHeight>avail||el.scrollWidth>el.clientWidth+2)){s-=2;el.style.fontSize=s+"px"}' +
+    '});});</scr' + 'ipt>';
+  const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${FOLHA_CSS}</style></head><body>${pagesHtml}${fitJs}</body></html>`;
   const frame = document.getElementById('print-frame');
   frame.srcdoc = docHtml;
   frame.onload = () => {
@@ -907,9 +981,11 @@ function printLote() {
 function loadLog() { try { return JSON.parse(localStorage.getItem('est-log') || '[]'); } catch(e) { return []; } }
 function saveLog(l) { try { localStorage.setItem('est-log', JSON.stringify(l)); } catch(e){} }
 function makeLogRecord(d, serie, palete) {
+  const _mp = isMPCode(d.codigo);
+  const _kgU = parseNum(d.peso), _pTot = parseNum(d.quantidade) * _kgU;
   return {
     serie, palete: palete || '—', codigo: d.codigo, descricao: d.descricao, quantidade: d.quantidade,
-    peso: d.peso, lote: d.lote, validade: d.validade, nota: d.nota, fornecedor: d.fornecedor,
+    peso: d.peso, kgUnid: _mp ? fmtNum(_kgU) : '—', pesoTotal: _mp ? fmtNum(_pTot) + ' KG' : '—', lote: d.lote, validade: d.validade, nota: d.nota, fornecedor: d.fornecedor,
     usuario: currentSession ? currentSession.nome : '—',
     turno: currentSession ? currentSession.turno : '—',
     timestamp: new Date().toLocaleString('pt-BR')
@@ -928,6 +1004,7 @@ function renderLog() {
     <td style="font-family:'DM Mono',monospace;color:var(--accent)">${r.serie}</td>
     <td>${r.palete || '—'}</td>
     <td>${r.codigo}</td><td>${r.descricao}</td><td>${r.quantidade}</td><td>${r.peso}</td>
+    <td>${r.kgUnid || '—'}</td><td>${r.pesoTotal || '—'}</td>
     <td>${r.lote}</td><td>${r.validade}</td><td>${r.nota}</td><td>${r.fornecedor}</td>
     <td>${r.usuario}</td><td style="white-space:nowrap">${r.timestamp}</td></tr>`).join('');
 }
@@ -939,11 +1016,11 @@ function clearLog() {
 function exportExcel() {
   const data = loadLog();
   if (!data.length) { showToast('Nenhum registro para exportar!', '#e05a2b'); return; }
-  const rows = [['Série','Palete','Código','Produto','Quantidade','Peso','Lote','Validade','Nota/Pedido','Fornecedor','Usuário','Turno','Timestamp']];
-  data.forEach(r => rows.push([r.serie, r.palete || '—', r.codigo, r.descricao, r.quantidade, r.peso, r.lote, r.validade, r.nota, r.fornecedor, r.usuario || '—', r.turno || '—', r.timestamp || '']));
+  const rows = [['Série','Palete','Código','Produto','Quantidade','Peso','Kg/Unid','Peso Total','Lote','Validade','Nota/Pedido','Fornecedor','Usuário','Turno','Timestamp']];
+  data.forEach(r => rows.push([r.serie, r.palete || '—', r.codigo, r.descricao, r.quantidade, r.peso, r.kgUnid || '—', r.pesoTotal || '—', r.lote, r.validade, r.nota, r.fornecedor, r.usuario || '—', r.turno || '—', r.timestamp || '']));
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:11},{wch:8},{wch:12},{wch:40},{wch:10},{wch:12},{wch:22},{wch:10},{wch:14},{wch:30},{wch:18},{wch:10},{wch:20}];
+  ws['!cols'] = [{wch:11},{wch:8},{wch:12},{wch:40},{wch:10},{wch:12},{wch:10},{wch:12},{wch:22},{wch:10},{wch:14},{wch:30},{wch:18},{wch:10},{wch:20}];
   XLSX.utils.book_append_sheet(wb, ws, 'Uso_Interno');
   XLSX.writeFile(wb, `reino_uso_interno_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.xlsx`);
   showToast('📊 Planilha exportada!');
