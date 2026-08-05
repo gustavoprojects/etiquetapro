@@ -6491,10 +6491,29 @@ function renderAdminUsers(){
         <span class="user-nome">${u.nome}</span>
         <span class="user-role">${u.role==='admin'?'★ Admin':'Operador'}</span>
       </div>
-      ${u.login!=='admin'?`<button class="btn-del-user" onclick="adminDelUser(${i})" title="Remover">🗑</button>`:'<span></span>'}
+      ${u.login!=='admin'?`<div style="display:flex;gap:6px;align-items:center">
+        <button onclick="adminToggleRole(${i})" title="${u.role==='admin'?'Rebaixar para Operador':'Promover a Admin'}"
+          style="background:${u.role==='admin'?'#6b6b88':'#f0c040'};color:#0e0e12;border:none;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:12px;font-weight:700;white-space:nowrap">
+          ${u.role==='admin'?'↓ Operador':'★ Admin'}
+        </button>
+        <button class="btn-del-user" onclick="adminDelUser(${i})" title="Remover">🗑</button>
+      </div>`:'<span></span>'}
     </div>`).join('');
 }
+// Alterna o cargo do usuário (Operador ⇄ Admin) sem precisar recriar a conta
+async function adminToggleRole(i){
+  if(!(currentSession && currentSession.role==='admin')){ showToast('Apenas administradores podem alterar cargos.','#e05a2b'); return; }
+  const users = getUsers();
+  if(users[i].login==='admin'){ showToast('O admin principal não pode ser alterado.','#e05a2b'); return; }
+  const novo = users[i].role==='admin' ? 'operator' : 'admin';
+  const label = novo==='admin' ? 'Administrador' : 'Operador';
+  if(!confirm(`Alterar "${users[i].login}" para ${label}?`)) return;
+  users[i].role = novo;
+  await saveUsers(users); renderAdminUsers();
+  showToast(`✅ ${users[i].login} agora é ${label}!`);
+}
 async function adminDelUser(i){
+  if(!(currentSession && currentSession.role==='admin')){ showToast('Apenas administradores podem remover usuários.','#e05a2b'); return; }
   const users = getUsers();
   if(users[i].login==='admin'){ showToast('Não é possível remover o admin.','#e05a2b'); return; }
   if(!confirm(`Remover usuário "${users[i].login}"?`)) return;
@@ -6502,6 +6521,7 @@ async function adminDelUser(i){
   showToast('🗑 Usuário removido e sincronizado!');
 }
 async function adminAddUser(){
+  if(!(currentSession && currentSession.role==='admin')){ showToast('Apenas administradores podem cadastrar usuários.','#e05a2b'); return; }
   const login = document.getElementById('new-user-login').value.trim();
   const pass  = document.getElementById('new-user-pass').value.trim();
   const nome  = document.getElementById('new-user-nome').value.trim();
