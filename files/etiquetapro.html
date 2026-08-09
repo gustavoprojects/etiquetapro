@@ -373,6 +373,25 @@ select option{background:var(--surface2)}
 <div class="toast" id="toast"><span id="toast-msg"></span></div>
 
 <!-- MODAL CONFIG -->
+<div class="modal-overlay" id="estacao-overlay">
+  <div class="modal" style="max-width:440px">
+    <h2>🏭 Identificação da Estação</h2>
+    <p class="sub">Cada aparelho precisa de um <b>número único</b> (01 a 99). Ele entra no início da série, garantindo que dois aparelhos nunca gerem a mesma etiqueta. <b>Nunca use o mesmo número em dois aparelhos.</b></p>
+    <div class="url-field">
+      <label>Número desta Estação</label>
+      <input type="number" id="estacao-input" min="1" max="99" placeholder="Ex: 1" autocomplete="off"
+        style="font-family:'DM Mono',monospace;font-size:20px;text-align:center;letter-spacing:2px"
+        oninput="previewEstacao()" onkeydown="if(event.key==='Enter')salvarEstacao()">
+    </div>
+    <p class="sub" id="estacao-preview" style="text-align:center">As séries ficarão: <b>??00001</b></p>
+    <p class="sub" id="estacao-err" style="color:var(--accent2);min-height:14px"></p>
+    <div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-secondary" id="estacao-cancel" style="width:auto;padding:10px 18px" onclick="document.getElementById('estacao-overlay').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-pa" style="width:auto;padding:10px 18px" onclick="salvarEstacao()">Salvar Estação</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <h2>
@@ -499,6 +518,7 @@ select option{background:var(--surface2)}
   <div class="header-chips">
     <div class="chip filial" id="header-filial">— Filial —</div>
     <div class="chip serie">Série <span id="serie-display">000001</span></div>
+    <div class="chip" id="chip-estacao" onclick="abrirEstacaoUI()" style="cursor:pointer" title="Estação deste aparelho (clique para alterar)">🏭 <span id="estacao-label">—</span></div>
     <div class="pa-chip" id="pa-chip" onclick="openSettings()">
       <div class="pa-dot" id="pa-dot"></div>
       <span class="pa-label" id="pa-label">Power Automate</span>
@@ -6453,6 +6473,8 @@ async function doLogin(){
     populateUserFilter();
   }
   renderLog();
+  refreshEstacaoUI();
+  if (!getEstacao()) abrirEstacao(true);
 }
 
 function doLogout(){
@@ -6635,13 +6657,59 @@ initMobileLayout();
 // ═══════════════════════════════════════
 //  SÉRIE
 // ═══════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// ESTAÇÃO — identifica o aparelho e garante séries únicas
+// Série = NN (estação, 2 dígitos) + 5 dígitos do contador local
+// Ex.: estação 01 → 0100001 | estação 02 → 0200001
+// Séries antigas (6 dígitos) não colidem com as novas (7 dígitos).
+// ══════════════════════════════════════════════════════
+function getEstacao() { return (localStorage.getItem('rk_estacao') || '').trim(); }
+function refreshEstacaoUI() {
+  const el = document.getElementById('estacao-label');
+  if (el) el.textContent = getEstacao() || 'definir';
+}
+function previewEstacao() {
+  const v = parseInt(document.getElementById('estacao-input').value);
+  const c = (v >= 1 && v <= 99) ? String(v).padStart(2,'0') : '??';
+  document.getElementById('estacao-preview').innerHTML = 'As séries ficarão: <b>' + c + '00001</b>';
+}
+function abrirEstacao(obrigatorio) {
+  document.getElementById('estacao-input').value = parseInt(getEstacao()) || '';
+  document.getElementById('estacao-err').textContent = '';
+  document.getElementById('estacao-cancel').style.display = obrigatorio ? 'none' : '';
+  previewEstacao();
+  document.getElementById('estacao-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('estacao-input').focus(), 100);
+}
+function abrirEstacaoUI() {
+  if (getEstacao() && !(currentSession && currentSession.role === 'admin')) {
+    showToast('⚠ Apenas Admin pode alterar a estação','#e05a2b'); return;
+  }
+  abrirEstacao(!getEstacao());
+}
+function salvarEstacao() {
+  const v = parseInt(document.getElementById('estacao-input').value);
+  if (!(v >= 1 && v <= 99)) {
+    document.getElementById('estacao-err').textContent = 'Informe um número de 1 a 99.';
+    return;
+  }
+  localStorage.setItem('rk_estacao', String(v).padStart(2,'0'));
+  document.getElementById('estacao-overlay').classList.remove('open');
+  refreshEstacaoUI(); refreshSerieDisplay();
+  showToast('🏭 Estação ' + String(v).padStart(2,'0') + ' configurada');
+}
+function checkEstacao() {
+  if (!getEstacao()) { showToast('⚠ Configure o número desta estação antes de imprimir!','#e05a2b'); abrirEstacao(true); return false; }
+  return true;
+}
+
 function getNextSerie() {
   let n = parseInt(localStorage.getItem('rk_serie') || '0') + 1;
   localStorage.setItem('rk_serie', n);
-  return String(n).padStart(6,'0');
+  return getEstacao() + String(n).padStart(5,'0');
 }
 function peekSerie() {
-  return String((parseInt(localStorage.getItem('rk_serie') || '0') + 1)).padStart(6,'0');
+  return (getEstacao() || '??') + String((parseInt(localStorage.getItem('rk_serie') || '0') + 1)).padStart(5,'0');
 }
 function refreshSerieDisplay() {
   const s = peekSerie();
@@ -6649,6 +6717,7 @@ function refreshSerieDisplay() {
   document.getElementById('lbl-serie').textContent = s;
 }
 refreshSerieDisplay();
+refreshEstacaoUI();
 
 // ═══════════════════════════════════════
 //  CONFIG POWER AUTOMATE
@@ -6979,6 +7048,7 @@ function generateQR(d, serie) {
 //  SALVAR → POWER AUTOMATE
 // ═══════════════════════════════════════
 async function saveRecord() {
+  if (!checkEstacao()) return;
   const d = validate();
   if (!d) return;
   if (!currentSession) { showToast('⚠ Faça login primeiro!','#e05a2b'); return; }
@@ -7019,6 +7089,7 @@ function printA4() {
   if (d.codigo==='—') { showToast('⚠ Selecione um produto!','#e05a2b'); return; }
   if (!currentFilial)  { showToast('⚠ Selecione a Filial/Destino!','#e05a2b'); return; }
   const now = new Date().toLocaleString('pt-BR');
+  const serie = peekSerie();   // mesma série que a etiqueta QR usará no par A4+etiqueta
   const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>A4 — ${d.codigo}</title>
   <style>
@@ -7088,7 +7159,7 @@ function printA4() {
         </div>
       </div>
       <div class="hdr-right">
-        <div class="emit">Emitido em <strong>${now}</strong></div>
+        <div class="emit">Emitido em <strong>${now}</strong><br>Série <strong style="font-family:'Courier New',monospace;font-size:12px;color:#0b3ea8;letter-spacing:1px">${serie}</strong></div>
         <div class="filial-pill">${d.filial}</div>
       </div>
     </div>
@@ -7132,6 +7203,7 @@ function printA4() {
 
 
 function printLabel() {
+  if (!checkEstacao()) return;
   const d = getFormData();
   if (d.codigo==='—')       { showToast('⚠ Selecione um produto!','#e05a2b'); return; }
   if (d.lote==='—')         { showToast('⚠ Informe o Lote!','#e05a2b'); return; }
@@ -7153,7 +7225,9 @@ function printLabel() {
     .top-empresa{font-size:8pt;font-weight:900;color:#1a1a2e}
     .top-filial{font-size:7pt;font-weight:700;color:#444}
     .qr-section{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5mm 0 0}
-    .qr-img{width:90mm;height:90mm;display:block}
+    .qr-img{width:84mm;height:84mm;display:block}
+    .qr-serie-lbl{font-size:5pt;text-transform:uppercase;letter-spacing:1.5px;font-weight:800;color:#8fa3c4;margin-top:1mm}
+    .qr-serie-big{font-family:'Courier New',monospace;font-size:15pt;font-weight:900;letter-spacing:2px;color:#0b3ea8;background:#eef3ff;border:0.5mm solid #b9cdf5;border-radius:1.5mm;padding:0.5mm 3mm;line-height:1.15;white-space:nowrap}
     .cod{text-align:center;font-family:'Courier New',monospace;font-size:7.5pt;font-weight:900;letter-spacing:3px;color:#111;padding:1.5mm 0;border-top:0.3mm solid #ddd;border-bottom:0.3mm solid #ddd;width:100%;margin-top:1.5mm}
     .info{display:grid;grid-template-columns:1fr 1fr;gap:1mm 3mm;flex-shrink:0;padding-top:1.5mm}
     .full{grid-column:1/-1}
@@ -7175,14 +7249,15 @@ function printLabel() {
     </div>
     <div class="qr-section">
       <img class="qr-img" src="${qrUrl}" alt="QR">
+      <div class="qr-serie-lbl">Série</div>
+      <div class="qr-serie-big">${serie}</div>
       <div class="cod">${d.codigo}</div>
     </div>
     <div class="info">
       <div class="f full"><div class="lbl">Produto</div><div class="val" style="font-size:7pt;line-height:1.25">${d.descricao}</div></div>
       <div class="f full"><div class="lbl">Lote</div><div class="val" style="font-size:8.5pt">${d.lote}</div></div>
       <div class="f">
-        <div class="lbl">Quantidade</div><div class="val" style="font-size:12pt">${d.quantidade}</div>
-        <div class="lbl" style="margin-top:1mm">Série</div><div class="serie">${serie}</div>
+        <div class="lbl">Quantidade</div><div class="val" style="font-size:14pt">${d.quantidade}</div>
       </div>
       <div class="val-box">
         <div class="lbl">⚠ Validade</div>
@@ -7204,6 +7279,7 @@ function printLabel() {
 }
 
 function printAll() {
+  if (!checkEstacao()) return;
   const d = getFormData();
   if (d.codigo==='—')        { showToast('⚠ Selecione um produto!','#e05a2b'); return; }
   if (!currentFilial)         { showToast('⚠ Selecione a Filial/Destino!','#e05a2b'); return; }
