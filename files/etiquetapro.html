@@ -373,25 +373,6 @@ select option{background:var(--surface2)}
 <div class="toast" id="toast"><span id="toast-msg"></span></div>
 
 <!-- MODAL CONFIG -->
-<div class="modal-overlay" id="estacao-overlay">
-  <div class="modal" style="max-width:440px">
-    <h2>🏭 Identificação da Estação</h2>
-    <p class="sub">Cada aparelho precisa de um <b>número único</b> (01 a 99). Ele entra no início da série, garantindo que dois aparelhos nunca gerem a mesma etiqueta. <b>Nunca use o mesmo número em dois aparelhos.</b></p>
-    <div class="url-field">
-      <label>Número desta Estação</label>
-      <input type="number" id="estacao-input" min="1" max="99" placeholder="Ex: 1" autocomplete="off"
-        style="font-family:'DM Mono',monospace;font-size:20px;text-align:center;letter-spacing:2px"
-        oninput="previewEstacao()" onkeydown="if(event.key==='Enter')salvarEstacao()">
-    </div>
-    <p class="sub" id="estacao-preview" style="text-align:center">As séries ficarão: <b>??00001</b></p>
-    <p class="sub" id="estacao-err" style="color:var(--accent2);min-height:14px"></p>
-    <div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btn btn-secondary" id="estacao-cancel" style="width:auto;padding:10px 18px" onclick="document.getElementById('estacao-overlay').classList.remove('open')">Cancelar</button>
-      <button class="btn btn-pa" style="width:auto;padding:10px 18px" onclick="salvarEstacao()">Salvar Estação</button>
-    </div>
-  </div>
-</div>
-
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal">
     <h2>
@@ -529,8 +510,7 @@ select option{background:var(--surface2)}
   </div>
   <div class="header-chips">
     <div class="chip filial" id="header-filial">— Filial —</div>
-    <div class="chip serie">Série <span id="serie-display">000001</span></div>
-    <div class="chip" id="chip-estacao" onclick="abrirEstacaoUI()" style="cursor:pointer" title="Estação deste aparelho (clique para alterar)">🏭 <span id="estacao-label">—</span></div>
+    <div class="chip serie" title="A numeração é feita pela máquina de impressão da filial">Série <span id="serie-display">?00000000</span></div>
     <div class="pa-chip" id="pa-chip" onclick="openSettings()">
       <div class="pa-dot" id="pa-dot"></div>
       <span class="pa-label" id="pa-label">Power Automate</span>
@@ -6446,8 +6426,7 @@ function previewSerieLogin(){
   const el = document.getElementById('login-serie-preview');
   if (!el) return;
   if (!fl) { el.textContent = 'A impressão sai na máquina desta filial.'; return; }
-  const prox = String((parseInt(localStorage.getItem('rk_serie_' + ini) || '0') + 1)).padStart(5,'0');
-  el.innerHTML = 'Séries desta filial: <b>' + ini + (getEstacao() || '??') + prox + '</b> — impressão na máquina de ' + fl + '.';
+  el.innerHTML = 'Séries desta filial: <b>' + ini + '00000001...</b> — geradas e impressas na máquina de ' + fl + '.';
 }
 
 function selectTurno(t){
@@ -6504,8 +6483,6 @@ async function doLogin(){
   travarFilial(true);
 
   renderLog();
-  refreshEstacaoUI();
-  if (!getEstacao()) abrirEstacao(true);
 }
 
 // Trava o campo Filial do formulário — a filial vem do login para evitar
@@ -6530,6 +6507,7 @@ function doLogout(){
   document.getElementById('filter-turno').style.display = 'none';
   document.getElementById('filter-usuario').style.display = 'none';
   document.getElementById('tabbtn-produtos').style.display = 'none';
+  novoCiclo();
   travarFilial(false);
   document.getElementById('login-overlay').style.display = '';
   document.getElementById('login-overlay').classList.remove('hidden');
@@ -6703,78 +6681,44 @@ initMobileLayout();
 //  SÉRIE
 // ═══════════════════════════════════════
 // ══════════════════════════════════════════════════════
-// ESTAÇÃO — identifica o aparelho e garante séries únicas
-// Série = INICIAL DA FILIAL + NN (estação) + 5 dígitos do contador
-// Ex.: MATRIZ estação 01 → M0100001 | FABRICA estação 02 → F0200001
-// A filial dá rastreabilidade; a estação garante que 2 aparelhos não colidam.
-// Séries antigas (6 dígitos) não colidem com as novas (7 dígitos).
+// NUMERAÇÃO — feita pela máquina de impressão da filial
+// Este aparelho NÃO gera série. Ele cria apenas um "ticket"
+// (código temporário) que liga o registro à etiqueta impressa.
+// Quando a máquina imprime, ela grava a série definitiva
+// (ex.: M00000001) no lugar do ticket.
 // ══════════════════════════════════════════════════════
-function getEstacao() { return (localStorage.getItem('rk_estacao') || '').trim(); }
-// Inicial da filial selecionada: MATRIZ→M, ST.AFONSO→S, LAGOA→L, FABRICA→F
 function inicialFilial(nome) {
   const t = String(nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   return t ? t[0] : '';
 }
-// Cada filial tem seu próprio contador neste aparelho
-function serieKey() { return 'rk_serie_' + (inicialFilial(currentFilial) || 'X'); }
-function refreshEstacaoUI() {
-  const el = document.getElementById('estacao-label');
-  if (el) el.textContent = getEstacao() || 'definir';
+
+let ticketAtual = null;
+function novoTicket() {
+  return 'TK-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
 }
-function previewEstacao() {
-  const v = parseInt(document.getElementById('estacao-input').value);
-  const c = (v >= 1 && v <= 99) ? String(v).padStart(2,'0') : '??';
-  const fl = inicialFilial(currentFilial) || 'M';
-  document.getElementById('estacao-preview').innerHTML =
-    'As séries ficarão: <b>' + fl + c + '00001</b> <span style="opacity:.7">(' + fl + ' = inicial da filial escolhida no formulário)</span>';
+function getTicket() {
+  if (!ticketAtual) ticketAtual = novoTicket();
+  return ticketAtual;
 }
-function abrirEstacao(obrigatorio) {
-  document.getElementById('estacao-input').value = parseInt(getEstacao()) || '';
-  document.getElementById('estacao-err').textContent = '';
-  document.getElementById('estacao-cancel').style.display = obrigatorio ? 'none' : '';
-  previewEstacao();
-  document.getElementById('estacao-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('estacao-input').focus(), 100);
-}
-function abrirEstacaoUI() {
-  if (getEstacao() && !(currentSession && currentSession.role === 'admin')) {
-    showToast('⚠ Apenas Admin pode alterar a estação','#e05a2b'); return;
-  }
-  abrirEstacao(!getEstacao());
-}
-function salvarEstacao() {
-  const v = parseInt(document.getElementById('estacao-input').value);
-  if (!(v >= 1 && v <= 99)) {
-    document.getElementById('estacao-err').textContent = 'Informe um número de 1 a 99.';
-    return;
-  }
-  localStorage.setItem('rk_estacao', String(v).padStart(2,'0'));
-  document.getElementById('estacao-overlay').classList.remove('open');
-  refreshEstacaoUI(); refreshSerieDisplay();
-  showToast('🏭 Estação ' + String(v).padStart(2,'0') + ' configurada');
-}
+function novoCiclo() { ticketAtual = null; }
+
+// Compatibilidade: o restante do código continua chamando estes nomes
+function getNextSerie() { return getTicket(); }
+function peekSerie()    { return getTicket(); }
 function checkEstacao() {
-  if (!getEstacao()) { showToast('⚠ Configure o número desta estação antes de imprimir!','#e05a2b'); abrirEstacao(true); return false; }
-  if (!currentFilial) { showToast('⚠ Selecione a Filial/Destino — ela define o prefixo da série!','#e05a2b'); return false; }
+  if (!currentFilial) { showToast('⚠ Selecione a Filial — ela define a máquina que vai imprimir!','#e05a2b'); return false; }
   return true;
 }
 
-function getNextSerie() {
-  const k = serieKey();
-  let n = parseInt(localStorage.getItem(k) || '0') + 1;
-  localStorage.setItem(k, n);
-  return inicialFilial(currentFilial) + getEstacao() + String(n).padStart(5,'0');
-}
-function peekSerie() {
-  return (inicialFilial(currentFilial) || '?') + (getEstacao() || '??') + String((parseInt(localStorage.getItem(serieKey()) || '0') + 1)).padStart(5,'0');
-}
 function refreshSerieDisplay() {
-  const s = peekSerie();
-  document.getElementById('serie-display').textContent = s;
-  document.getElementById('lbl-serie').textContent = s;
+  // A série é gerada pela máquina de impressão da filial
+  const pre = inicialFilial(currentFilial) || '?';
+  const el = document.getElementById('serie-display');
+  const lb = document.getElementById('lbl-serie');
+  if (el) el.textContent = pre + '00000000';
+  if (lb) lb.textContent = 'gerada na impressão';
 }
 refreshSerieDisplay();
-refreshEstacaoUI();
 (function preSelecionaFilialLogin(){
   const ultima = localStorage.getItem('rk_filial_login');
   const sel = document.getElementById('login-filial');
@@ -6845,13 +6789,11 @@ async function sendPrintJob(job) {
   }
 
   const d      = getFormData();
-  // Etiqueta QR: cada envio consome uma série própria (uma etiqueta física = um número).
-  // A4 não numera — apenas exibe a próxima série, sem consumir.
-  const serie  = (job === 'QR') ? getNextSerie() : peekSerie();
-  if (job === 'QR') { refreshSerieDisplay(); generateQR(d, peekSerie()); }
+  // O ticket liga o registro à etiqueta; a série definitiva nasce na máquina.
+  const serie  = getTicket();
   try {
     await paFetch(PA_URL_PRINT, buildPABody(job, printer, d, serie));
-    showToast(`✅ Impressão ${job} enviada → ${printer}${job === 'QR' ? ' — Série #' + serie : ''}`, '#3dd68c');
+    showToast(`✅ ${job} enviado para a máquina da ${currentFilial} — a série é gerada lá`, '#3dd68c');
   } catch (e) {
     showToast('❌ Erro ao enviar impressão: ' + e.message, '#e05a2b');
   }
@@ -7132,13 +7074,13 @@ async function saveRecord() {
     // Se auto-impressão ativa, envia jobs A4/QR para FilaImpressao
     await registrarFilaImpressao(d, serie);
 
-    getNextSerie();
+    novoCiclo();   // próximo registro usa um ticket novo
     d.serie = serie; d.timestamp = new Date().toLocaleString('pt-BR');
     d.usuario = currentSession ? currentSession.nome : 'Desconhecido';
     d.turno   = currentSession ? currentSession.turno : '—';
     logData.push({...d}); saveLog(); renderLog(); populateUserFilter();
     document.getElementById('pa-dot').className = 'pa-dot on';
-    showToast(`✅ Enviado ao SharePoint — Série #${serie}`, '#3dd68c');
+    showToast('✅ Enviado ao SharePoint — a série sai na impressão', '#3dd68c');
     generateQR(d, peekSerie());
   } catch(e) {
     document.getElementById('pa-dot').className = 'pa-dot err';
