@@ -472,6 +472,18 @@ select option{background:var(--surface2)}
       <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <div class="login-field">
+      <label>Filial (onde você está)</label>
+      <select id="login-filial" onchange="previewSerieLogin()"
+        style="padding:10px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit;outline:none">
+        <option value="">Selecione a filial...</option>
+        <option value="MATRIZ">🏢 MATRIZ</option>
+        <option value="ST.AFONSO">📦 ST.AFONSO</option>
+        <option value="LAGOA">🌊 LAGOA</option>
+        <option value="FABRICA">🏭 FABRICA</option>
+      </select>
+      <div id="login-serie-preview" style="font-size:11px;color:var(--muted)">A impressão sai na máquina desta filial.</div>
+    </div>
+    <div class="login-field">
       <label>Turno</label>
       <div class="login-turno">
         <button class="turno-btn active" id="tb-diurno" onclick="selectTurno('Diurno')">🌅 Diurno</button>
@@ -6428,6 +6440,16 @@ function loadJsonBinConfigUI() {
 let currentSession = null;  // { login, nome, role, turno }
 let selectedTurno  = 'Diurno';
 
+function previewSerieLogin(){
+  const fl = document.getElementById('login-filial').value;
+  const ini = inicialFilial(fl);
+  const el = document.getElementById('login-serie-preview');
+  if (!el) return;
+  if (!fl) { el.textContent = 'A impressão sai na máquina desta filial.'; return; }
+  const prox = String((parseInt(localStorage.getItem('rk_serie_' + ini) || '0') + 1)).padStart(5,'0');
+  el.innerHTML = 'Séries desta filial: <b>' + ini + (getEstacao() || '??') + prox + '</b> — impressão na máquina de ' + fl + '.';
+}
+
 function selectTurno(t){
   selectedTurno = t;
   document.getElementById('tb-diurno').classList.toggle('active', t==='Diurno');
@@ -6440,6 +6462,8 @@ async function doLogin(){
   const err   = document.getElementById('login-err');
   if(!login||!pass){ err.textContent='Preencha usuário e senha.'; return; }
   if(!selectedTurno){ err.textContent='Selecione o turno.'; return; }
+  const filialLogin = document.getElementById('login-filial').value;
+  if(!filialLogin){ err.textContent='Selecione a filial onde você está.'; return; }
 
   // Sempre busca da nuvem antes de validar — garante usuários atualizados
   const btn = document.getElementById('btn-login-action');
@@ -6472,9 +6496,29 @@ async function doLogin(){
     document.getElementById('tabbtn-produtos').style.display = '';
     populateUserFilter();
   }
+  // Filial da sessão: define o prefixo da série e a máquina que vai imprimir
+  localStorage.setItem('rk_filial_login', filialLogin);
+  const selFilial = document.getElementById('field-filial');
+  selFilial.value = filialLogin;
+  onFilialChange();
+  travarFilial(true);
+
   renderLog();
   refreshEstacaoUI();
   if (!getEstacao()) abrirEstacao(true);
+}
+
+// Trava o campo Filial do formulário — a filial vem do login para evitar
+// imprimir na máquina errada. Para trocar, é só sair e entrar de novo.
+function travarFilial(travar){
+  const sel = document.getElementById('field-filial');
+  if (!sel) return;
+  sel.disabled = travar;
+  sel.title = travar ? 'Definida no login — saia e entre novamente para trocar de filial' : '';
+  sel.style.opacity = travar ? '.75' : '';
+  sel.style.cursor = travar ? 'not-allowed' : '';
+  const lbl = sel.closest('.field-group') ? sel.closest('.field-group').querySelector('label') : null;
+  if (lbl) lbl.textContent = travar ? 'Filial (definida no login) 🔒' : 'Filial / Destino';
 }
 
 function doLogout(){
@@ -6486,6 +6530,7 @@ function doLogout(){
   document.getElementById('filter-turno').style.display = 'none';
   document.getElementById('filter-usuario').style.display = 'none';
   document.getElementById('tabbtn-produtos').style.display = 'none';
+  travarFilial(false);
   document.getElementById('login-overlay').style.display = '';
   document.getElementById('login-overlay').classList.remove('hidden');
   document.getElementById('login-user').value = '';
@@ -6659,11 +6704,19 @@ initMobileLayout();
 // ═══════════════════════════════════════
 // ══════════════════════════════════════════════════════
 // ESTAÇÃO — identifica o aparelho e garante séries únicas
-// Série = NN (estação, 2 dígitos) + 5 dígitos do contador local
-// Ex.: estação 01 → 0100001 | estação 02 → 0200001
+// Série = INICIAL DA FILIAL + NN (estação) + 5 dígitos do contador
+// Ex.: MATRIZ estação 01 → M0100001 | FABRICA estação 02 → F0200001
+// A filial dá rastreabilidade; a estação garante que 2 aparelhos não colidam.
 // Séries antigas (6 dígitos) não colidem com as novas (7 dígitos).
 // ══════════════════════════════════════════════════════
 function getEstacao() { return (localStorage.getItem('rk_estacao') || '').trim(); }
+// Inicial da filial selecionada: MATRIZ→M, ST.AFONSO→S, LAGOA→L, FABRICA→F
+function inicialFilial(nome) {
+  const t = String(nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return t ? t[0] : '';
+}
+// Cada filial tem seu próprio contador neste aparelho
+function serieKey() { return 'rk_serie_' + (inicialFilial(currentFilial) || 'X'); }
 function refreshEstacaoUI() {
   const el = document.getElementById('estacao-label');
   if (el) el.textContent = getEstacao() || 'definir';
@@ -6671,7 +6724,9 @@ function refreshEstacaoUI() {
 function previewEstacao() {
   const v = parseInt(document.getElementById('estacao-input').value);
   const c = (v >= 1 && v <= 99) ? String(v).padStart(2,'0') : '??';
-  document.getElementById('estacao-preview').innerHTML = 'As séries ficarão: <b>' + c + '00001</b>';
+  const fl = inicialFilial(currentFilial) || 'M';
+  document.getElementById('estacao-preview').innerHTML =
+    'As séries ficarão: <b>' + fl + c + '00001</b> <span style="opacity:.7">(' + fl + ' = inicial da filial escolhida no formulário)</span>';
 }
 function abrirEstacao(obrigatorio) {
   document.getElementById('estacao-input').value = parseInt(getEstacao()) || '';
@@ -6700,16 +6755,18 @@ function salvarEstacao() {
 }
 function checkEstacao() {
   if (!getEstacao()) { showToast('⚠ Configure o número desta estação antes de imprimir!','#e05a2b'); abrirEstacao(true); return false; }
+  if (!currentFilial) { showToast('⚠ Selecione a Filial/Destino — ela define o prefixo da série!','#e05a2b'); return false; }
   return true;
 }
 
 function getNextSerie() {
-  let n = parseInt(localStorage.getItem('rk_serie') || '0') + 1;
-  localStorage.setItem('rk_serie', n);
-  return getEstacao() + String(n).padStart(5,'0');
+  const k = serieKey();
+  let n = parseInt(localStorage.getItem(k) || '0') + 1;
+  localStorage.setItem(k, n);
+  return inicialFilial(currentFilial) + getEstacao() + String(n).padStart(5,'0');
 }
 function peekSerie() {
-  return (getEstacao() || '??') + String((parseInt(localStorage.getItem('rk_serie') || '0') + 1)).padStart(5,'0');
+  return (inicialFilial(currentFilial) || '?') + (getEstacao() || '??') + String((parseInt(localStorage.getItem(serieKey()) || '0') + 1)).padStart(5,'0');
 }
 function refreshSerieDisplay() {
   const s = peekSerie();
@@ -6718,6 +6775,12 @@ function refreshSerieDisplay() {
 }
 refreshSerieDisplay();
 refreshEstacaoUI();
+(function preSelecionaFilialLogin(){
+  const ultima = localStorage.getItem('rk_filial_login');
+  const sel = document.getElementById('login-filial');
+  if (sel && ultima) { sel.value = ultima; }
+  if (typeof previewSerieLogin === 'function') previewSerieLogin();
+})();
 
 // ═══════════════════════════════════════
 //  CONFIG POWER AUTOMATE
@@ -6770,6 +6833,7 @@ async function paFetch(url, body) {
   });
 }
 async function sendPrintJob(job) {
+  if (!checkEstacao()) return;
   const printer = job === 'A4'
     ? (localStorage.getItem('printer_a4_name') || '')
     : (localStorage.getItem('printer_qr_name') || '');
@@ -6781,10 +6845,13 @@ async function sendPrintJob(job) {
   }
 
   const d      = getFormData();
-  const serie  = peekSerie();
+  // Etiqueta QR: cada envio consome uma série própria (uma etiqueta física = um número).
+  // A4 não numera — apenas exibe a próxima série, sem consumir.
+  const serie  = (job === 'QR') ? getNextSerie() : peekSerie();
+  if (job === 'QR') { refreshSerieDisplay(); generateQR(d, peekSerie()); }
   try {
     await paFetch(PA_URL_PRINT, buildPABody(job, printer, d, serie));
-    showToast(`✅ Impressão ${job} enviada → ${printer}`, '#3dd68c');
+    showToast(`✅ Impressão ${job} enviada → ${printer}${job === 'QR' ? ' — Série #' + serie : ''}`, '#3dd68c');
   } catch (e) {
     showToast('❌ Erro ao enviar impressão: ' + e.message, '#e05a2b');
   }
@@ -6895,6 +6962,7 @@ async function testWebhook() {
 function onFilialChange() {
   currentFilial = document.getElementById('field-filial').value;
   document.getElementById('header-filial').textContent = currentFilial || '— Filial —';
+  refreshSerieDisplay();
   updatePreview();
 }
 
