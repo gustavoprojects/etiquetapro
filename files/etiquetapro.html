@@ -638,15 +638,13 @@ select option{background:var(--surface2)}
         <div style="display:flex;flex-direction:column;gap:4px;flex:1">
           <button class="btn btn-success" style="flex:1" onclick="smartPrintA4()">🖨 Imprimir A4</button>
           <div style="display:flex;align-items:center;gap:6px;padding:0 2px">
-            <span id="printer-a4-label" style="font-size:10px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Impressora não configurada</span>
-            <button onclick="reconfigurePrinter('a4')" title="Reconfigurar impressora A4" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:0;line-height:1">⚙️</button>
+            <span id="printer-a4-label" style="font-size:10px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🏭 Impressora da filial</span>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;flex:1">
           <button class="btn btn-success" style="flex:1" onclick="smartPrintQR()">🏷 Imprimir Etiqueta QR</button>
           <div style="display:flex;align-items:center;gap:6px;padding:0 2px">
-            <span id="printer-qr-label" style="font-size:10px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Impressora não configurada</span>
-            <button onclick="reconfigurePrinter('qr')" title="Reconfigurar impressora QR" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:0;line-height:1">⚙️</button>
+            <span id="printer-qr-label" style="font-size:10px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🏭 Impressora da filial</span>
           </div>
         </div>
       </div>
@@ -6778,15 +6776,7 @@ async function paFetch(url, body) {
 }
 async function sendPrintJob(job) {
   if (!checkEstacao()) return;
-  const printer = job === 'A4'
-    ? (localStorage.getItem('printer_a4_name') || '')
-    : (localStorage.getItem('printer_qr_name') || '');
-
-  if (!printer) {
-    showToast('⚠ Configure a impressora nas ⚙️ Configurações primeiro!', '#e05a2b');
-    openSettings();
-    return;
-  }
+  const printer = '';   // vazio = a máquina da filial usa a impressora dela
 
   const d      = getFormData();
   // O ticket liga o registro à etiqueta; a série definitiva nasce na máquina.
@@ -7213,7 +7203,10 @@ function printA4() {
 
 
 function printLabel() {
-  if (!checkEstacao()) return;
+  showToast('🏭 A etiqueta é impressa na máquina da filial — use "Imprimir Etiqueta QR"', '#0078d4');
+}
+
+function _printLabelLocal_DESATIVADO() {
   const d = getFormData();
   if (d.codigo==='—')       { showToast('⚠ Selecione um produto!','#e05a2b'); return; }
   if (d.lote==='—')         { showToast('⚠ Informe o Lote!','#e05a2b'); return; }
@@ -7288,15 +7281,16 @@ function printLabel() {
   showToast(`🏷 Etiqueta QR — Série #${serie}`);
 }
 
-function printAll() {
+async function printAll() {
   if (!checkEstacao()) return;
   const d = getFormData();
   if (d.codigo==='—')        { showToast('⚠ Selecione um produto!','#e05a2b'); return; }
   if (!currentFilial)         { showToast('⚠ Selecione a Filial/Destino!','#e05a2b'); return; }
   if (d.lote==='—')           { showToast('⚠ Informe o Lote!','#e05a2b'); return; }
   if (d.validade.length < 5)  { showToast('⚠ Informe a Validade (MM/AA)!','#e05a2b'); return; }
-  printA4();
-  setTimeout(() => printLabel(), 600);
+  // Vai para a fila — quem imprime e numera é a máquina da filial
+  await sendPrintJob('A4');
+  await sendPrintJob('QR');
 }
 
 // ═══════════════════════════════════════
@@ -7429,13 +7423,13 @@ function updateAutoPrintStatus() {
 let _printerPendingType = null; // 'a4' ou 'qr'
 
 function loadPrinterLabels() {
-  const a4 = localStorage.getItem('printer_a4_name');
-  const qr = localStorage.getItem('printer_qr_name');
-  const elA4 = document.getElementById('printer-a4-label');
-  const elQR = document.getElementById('printer-qr-label');
-  if (elA4) elA4.textContent = a4 ? '🖨 ' + a4 : 'Impressora não configurada';
-  if (elQR) elQR.textContent = qr ? '🖨 ' + qr : 'Impressora não configurada';
+  // As impressoras ficam na máquina da filial — o aparelho não configura nada
+  const a4 = document.getElementById('printer-a4-label');
+  const qr = document.getElementById('printer-qr-label');
+  if (a4) a4.textContent = '🏭 Impressora da filial';
+  if (qr) qr.textContent = '🏭 Impressora da filial';
 }
+
 
 function openPrinterModal(type, isReconfig = false) {
   _printerPendingType = type;
@@ -7478,21 +7472,10 @@ function confirmPrinterSetup() {
   else               { sendPrintJob('QR'); }
 }
 
-function smartPrintA4() {
-  if (!localStorage.getItem('printer_a4_configured')) {
-    openPrinterModal('a4', false);
-  } else {
-    sendPrintJob('A4');
-  }
-}
+// O aparelho não escolhe impressora: usa as configuradas na máquina da filial
+function smartPrintA4() { return sendPrintJob('A4'); }
 
-function smartPrintQR() {
-  if (!localStorage.getItem('printer_qr_configured')) {
-    openPrinterModal('qr', false);
-  } else {
-    sendPrintJob('QR');
-  }
-}
+function smartPrintQR() { return sendPrintJob('QR'); }
 
 function reconfigurePrinter(type) {
   openPrinterModal(type, true);
