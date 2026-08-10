@@ -235,7 +235,18 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
 <div id="estacao-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1100;display:none;align-items:center;justify-content:center;padding:20px">
   <div class="login-card" style="max-width:440px">
     <h2>🏭 <span>Identificação da Estação<small>Obrigatório — evita séries repetidas</small></span></h2>
-    <p class="hint" style="margin-bottom:0">Cada aparelho precisa de um <b>código único</b> (1 a 3 letras/números). Ele entra no número de série, garantindo que dois aparelhos nunca gerem a mesma etiqueta.<br><b style="color:var(--warn)">Nunca use o mesmo código em dois aparelhos.</b></p>
+    <p class="hint" style="margin-bottom:0">A <b>filial</b> identifica a origem da etiqueta e o <b>código da estação</b> (1 a 3 letras/números) identifica o aparelho. Juntos garantem que duas máquinas nunca gerem a mesma série.<br><b style="color:var(--warn)">Nunca use o mesmo código de estação em dois aparelhos da mesma filial.</b></p>
+    <div class="field-group">
+      <label>Filial deste Aparelho</label>
+      <select id="filial-input" onchange="previewEstacao()"
+        style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);padding:12px 13px;font-family:inherit;font-size:15px;outline:none">
+        <option value="">Selecione a filial...</option>
+        <option value="MATRIZ">🏢 MATRIZ</option>
+        <option value="ST.AFONSO">📦 ST.AFONSO</option>
+        <option value="LAGOA">🌊 LAGOA</option>
+        <option value="FABRICA">🏭 FABRICA</option>
+      </select>
+    </div>
     <div class="field-group">
       <label>Código desta Estação</label>
       <input type="text" id="estacao-input" maxlength="3" placeholder="Ex: A, B, T1" autocomplete="off"
@@ -360,12 +371,13 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
         <div><h3>Ações</h3><small>Impressão única e utilitários</small></div>
       </div>
       <div class="serie-box">
-        <span class="lbl">Próxima Série</span>
-        <span class="val" id="serie-display">EST000001</span>
+        <span class="lbl">Numeração<br><span style="text-transform:none;letter-spacing:0;font-weight:600">gerada na máquina da filial</span></span>
+        <span class="val" id="serie-display">?00000000</span>
       </div>
       <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:8px;margin-bottom:12px">
-        <input type="checkbox" id="sp-enviar" checked onchange="saveSPToggle()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
-        <label for="sp-enviar" style="font-size:12px;font-weight:700;cursor:pointer">☁ Registrar no SharePoint ao imprimir</label>
+        <span style="font-size:14px">☁</span>
+        <label style="font-size:12px;font-weight:700">Série e registro gerados na máquina da filial</label>
+        <input type="checkbox" id="sp-enviar" checked style="display:none">
         <span id="sp-status" style="font-size:10px;color:var(--muted);margin-left:auto"></span>
       </div>
       <div class="actions">
@@ -414,7 +426,7 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
             <div class="mini-cell" style="flex:1"><div class="bl">Nota/Pedido</div><div class="bv" id="prev-nota">—</div></div>
           </div>
         </div>
-        <p class="qr-legend">O QR Code compõe: <b>Código;Descrição;Lote;Validade;Quantidade;Série;Peso;Nota/Pedido;Fornecedor</b><br>Produtos <b>MP</b>: Quantidade no QR = <b>Peso Total</b> (Qtd × Kg/Unid) e Peso no QR = <b>Kg por Unidade</b></p>
+        <p class="qr-legend">Prévia — o QR e a série definitiva são gerados na impressora da filial.<br>O QR Code compõe: <b>Código;Descrição;Lote;Validade;Quantidade;Série;Peso;Nota/Pedido;Fornecedor</b><br>Produtos <b>MP</b>: Quantidade no QR = <b>Peso Total</b> (Qtd × Kg/Unid) e Peso no QR = <b>Kg por Unidade</b></p>
       </div>
     </div>
 
@@ -579,7 +591,7 @@ async function doLogin() {
     document.getElementById('btn-clear-log').style.display = '';
   }
   renderLog(); renderProdutos(); updatePreview(); refreshEstacaoUI();
-  if (!getEstacao()) abrirEstacao(true);
+  if (!getEstacao() || !getFilial()) abrirEstacao(true);
 }
 
 function doLogout() {
@@ -601,53 +613,68 @@ function doLogout() {
 // Como o código do aparelho entra no número, dois aparelhos nunca colidem —
 // sem depender de internet nem de contador central.
 function getEstacao() { return (localStorage.getItem('est-estacao') || '').trim().toUpperCase(); }
+function getFilial()  { return (localStorage.getItem('est-filial')  || '').trim().toUpperCase(); }
+// Inicial da filial: MATRIZ→M, FABRICA→F, ST.AFONSO→S, LAGOA→L
+function inicialFilial(nome) {
+  const t = String(nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return t ? t[0] : '';
+}
 function refreshEstacaoUI() {
   const b = document.getElementById('hdr-estacao');
-  if (b) b.textContent = '🏭 ' + (getEstacao() || 'definir');
+  if (b) b.textContent = '🏭 ' + (getFilial() ? inicialFilial(getFilial()) + '·' + getEstacao() : 'definir');
+  if (b) b.title = getFilial() ? ('Filial ' + getFilial() + ' — estação ' + getEstacao() + ' (clique para alterar)') : 'Clique para definir filial e estação';
 }
 function previewEstacao() {
-  const c = (document.getElementById('estacao-input').value || '?').toUpperCase();
-  document.getElementById('estacao-preview').innerHTML = 'As séries ficarão: <b>EST' + c + '000001</b>';
+  const fl = inicialFilial(document.getElementById('filial-input').value) || '?';
+  const c  = (document.getElementById('estacao-input').value || '?').toUpperCase();
+  document.getElementById('estacao-preview').innerHTML = 'As séries ficarão: <b>EST' + fl + c + '000001</b>';
 }
 function abrirEstacao(obrigatorio) {
   document.getElementById('estacao-input').value = getEstacao();
+  document.getElementById('filial-input').value = getFilial();
   document.getElementById('estacao-err').textContent = '';
   document.getElementById('estacao-cancel').style.display = obrigatorio ? 'none' : '';
   previewEstacao();
   document.getElementById('estacao-overlay').style.display = 'flex';
-  setTimeout(() => document.getElementById('estacao-input').focus(), 100);
+  setTimeout(() => document.getElementById('filial-input').focus(), 100);
 }
 function abrirEstacaoUI() {
-  if (getEstacao() && !(currentSession && currentSession.role === 'admin')) {
-    showToast('⚠ Apenas Admin pode alterar a estação', '#e05a2b'); return;
+  if (getEstacao() && getFilial() && !(currentSession && currentSession.role === 'admin')) {
+    showToast('⚠ Apenas Admin pode alterar filial/estação', '#e05a2b'); return;
   }
-  abrirEstacao(!getEstacao());
+  abrirEstacao(!getEstacao() || !getFilial());
 }
 function salvarEstacao() {
-  const v = (document.getElementById('estacao-input').value || '').trim().toUpperCase();
+  const fl = (document.getElementById('filial-input').value || '').trim();
+  const v  = (document.getElementById('estacao-input').value || '').trim().toUpperCase();
+  if (!fl) { document.getElementById('estacao-err').textContent = 'Selecione a filial deste aparelho.'; return; }
   if (!/^[A-Z0-9]{1,3}$/.test(v)) {
-    document.getElementById('estacao-err').textContent = 'Use de 1 a 3 letras ou números (ex.: A, B, T1).';
+    document.getElementById('estacao-err').textContent = 'Use de 1 a 3 letras ou números na estação (ex.: A, B, T1).';
     return;
   }
+  localStorage.setItem('est-filial', fl);
   localStorage.setItem('est-estacao', v);
   document.getElementById('estacao-overlay').style.display = 'none';
   refreshEstacaoUI(); refreshSerieDisplay(); updatePreview();
-  showToast('🏭 Estação ' + v + ' configurada');
+  showToast('🏭 ' + fl + ' — estação ' + v + ' configurada');
 }
 
-// ══════════════ SÉRIE — EST + estação + 6 dígitos ══════════════
+// ══════════════ SÉRIE — EST + filial + estação + 6 dígitos ══════════════
+// Ex.: ESTMA000047 = uso interno, filial MATRIZ, estação A, nº 47
 function getNextSerie() {
   let n = parseInt(localStorage.getItem('est-serie') || '0') + 1;
   localStorage.setItem('est-serie', n);
-  return 'EST' + getEstacao() + String(n).padStart(6, '0');
+  return 'EST' + inicialFilial(getFilial()) + getEstacao() + String(n).padStart(6, '0');
 }
 function peekSerie() {
-  return 'EST' + (getEstacao() || '?') + String(parseInt(localStorage.getItem('est-serie') || '0') + 1).padStart(6, '0');
+  return 'EST' + (inicialFilial(getFilial()) || '?') + (getEstacao() || '?') + String(parseInt(localStorage.getItem('est-serie') || '0') + 1).padStart(6, '0');
 }
 function refreshSerieDisplay() {
-  const s = peekSerie();
-  document.getElementById('serie-display').textContent = s;
-  document.getElementById('lbl-serie').textContent = s;
+  // A numeração é da máquina da filial — o aparelho não conhece a série.
+  const el = document.getElementById('serie-display');
+  const lb = document.getElementById('lbl-serie');
+  if (el) el.textContent = (inicialFilial(getFilial()) || '?') + '00000000';
+  if (lb) lb.textContent = 'gerada na impressão';
 }
 
 // ══════════════ BUSCA DE PRODUTO ══════════════
@@ -703,7 +730,7 @@ function getFormData() {
   };
 }
 function validate() {
-  if (!getEstacao()) { showToast('⚠ Configure o código desta estação antes de imprimir!', '#e05a2b'); abrirEstacao(true); return null; }
+  if (!getEstacao() || !getFilial()) { showToast('⚠ Configure a filial e a estação deste aparelho antes de imprimir!', '#e05a2b'); abrirEstacao(true); return null; }
   const d = getFormData();
   if (d.codigo === '—')        { showToast('⚠ Selecione um produto!', '#e05a2b'); return null; }
   if (d.fornecedor === '—')    { showToast('⚠ Informe o Fornecedor!', '#e05a2b'); return null; }
@@ -911,7 +938,7 @@ function buildFolhaPage(d, serie, qrImg, now, paleteLabel) {
         <img class="logo-img" src="${LOGO_SRC}" alt="">
         <div>
           <div class="empresa-name">Reino Alimentos</div>
-          <div class="empresa-sub">Uso Interno — Recebimento / Estoque</div>
+          <div class="empresa-sub">Uso Interno — Recebimento / Estoque${getFilial() ? ' — ' + getFilial() : ''}</div>
           <div class="empresa-autor">Gustavo.Lima / Reino Alimentos</div>
         </div>
       </div>
@@ -972,19 +999,49 @@ function printDoc(title, pagesHtml) {
   };
 }
 
-function printFolha() {
+// ══════════════════════════════════════════════════════════════
+//  ENVIO PARA A FILA — a máquina da filial numera e imprime
+//  A série NÃO é gerada aqui: quem numera é o computador da
+//  filial (contador único, espelhado no SharePoint).
+// ══════════════════════════════════════════════════════════════
+const PA_URL_FILA = 'https://default6142e716d6e94577a712609139a997.3f.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/362ffbefb6e74d23bb3207fadc05b80c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=807nodsZ-_YUT58Nlnnfu24FZcwMgJVpE2xMoJbV0VQ';
+
+async function enviarParaFila(d, folhas, qtdPorFolha, qtdUltima) {
+  const body = JSON.stringify({
+    filial: getFilial(),
+    job: 'INTERNO',
+    printer: '',                       // usa a impressora A4 da máquina da filial
+    payload: {
+      Codigo: d.codigo, Produto: d.descricao, Lote: d.lote, Validade: d.validade,
+      Quantidade: String(qtdPorFolha), QtdUltimaFolha: String(qtdUltima),
+      Folhas: folhas,
+      Peso: d.peso, Fornecedor: d.fornecedor, NotaPedido: d.nota,
+      Filial: getFilial(), Estacao: getEstacao(),
+      Usuario: currentSession ? currentSession.nome : '—',
+      Turno:   currentSession ? currentSession.turno : '—',
+      Data: new Date().toLocaleString('pt-BR')
+    }
+  });
+  const r = await fetch(PA_URL_FILA, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body
+  });
+  if (!(r.ok || r.status === 202)) throw new Error('HTTP ' + r.status);
+}
+
+async function printFolha() {
   const d = validate();
   if (!d) return;
-  const serie = getNextSerie();
-  const now = new Date().toLocaleString('pt-BR');
-  const qrImg = qrDataUrl(buildQrString(d, serie));
-  printDoc(`USO INTERNO — ${d.codigo} — ${serie}`, buildFolhaPage(d, serie, qrImg, now, ''));
-  const _rec = makeLogRecord(d, serie, '—');
-  addLogMany([_rec]);
-  enviarRegistrosSP([_rec]);
-  refreshSerieDisplay();
-  generateQR(d, peekSerie());
-  showToast(`🖨 Imprimindo folha — Série ${serie}`);
+  const btn = document.querySelector('.btn-print');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Enviando para impressão...'; }
+  try {
+    await enviarParaFila(d, 1, d.quantidade, d.quantidade);
+    addLogMany([makeLogRecord(d, '(na impressora)', '—')]);
+    showToast('🖨 Enviado para a impressora da ' + getFilial() + ' — a série é gerada lá');
+  } catch (e) {
+    showToast('❌ Não foi possível enviar: ' + e.message, '#e05a2b');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🖨 Imprimir Folha A4 + QR'; }
+  }
 }
 
 // ══════════════ LOTE / PALETIZAÇÃO ══════════════
@@ -1017,41 +1074,39 @@ function refreshLote() {
     } else {
       txt = `<b>${folhas} folhas</b> × ${per} por palete` + (total > 0 ? ` (total ${total})` : ` (total ${folhas * per})`);
     }
-    el.innerHTML = `📦 ${txt} — séries a partir de <b>${peekSerie()}</b>`;
+    el.innerHTML = `📦 ${txt} — séries geradas na impressora da <b>${getFilial() || 'filial'}</b>`;
     btn.textContent = `🖨 Imprimir Lote (${folhas} folhas)`;
   } else {
     el.innerHTML = 'Informe a quantidade <b>por palete</b> no campo Quantidade acima e a <b>quantidade total</b> aqui (as folhas são calculadas) — ou informe direto o nº de folhas.';
     btn.textContent = '🖨 Imprimir Lote';
   }
 }
-function printLote() {
+async function printLote() {
   const d = validate();
   if (!d) return;
   const { per, total, folhas, lastQty } = getLoteInfo();
   if (folhas < 1)   { showToast('⚠ Informe a Qtd Total ou o Nº de Folhas!', '#e05a2b'); return; }
   if (folhas > 300) { showToast('⚠ Máximo de 300 folhas por lote!', '#e05a2b'); return; }
-  const primeira = peekSerie();
-  if (!confirm(`Imprimir ${folhas} folhas, cada uma com série própria (a partir de ${primeira})?`)) return;
-  const now = new Date().toLocaleString('pt-BR');
-  const pages = [], logs = [];
-  let serie = '';
-  for (let i = 1; i <= folhas; i++) {
-    const qty = (i === folhas) ? lastQty : per;
-    const di = Object.assign({}, d, { quantidade: String(qty) });
-    serie = getNextSerie();
-    const qrImg = qrDataUrl(buildQrString(di, serie));
-    pages.push(buildFolhaPage(di, serie, qrImg, now, `Palete ${i} de ${folhas}`));
-    logs.push(makeLogRecord(di, serie, `${i}/${folhas}`));
+  if (!confirm(`Enviar ${folhas} folhas para a impressora da ${getFilial()}?\n\nAs séries são geradas lá, em sequência.`)) return;
+  const btn = document.getElementById('btn-lote');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Enviando lote...'; }
+  try {
+    await enviarParaFila(d, folhas, per, lastQty);
+    const logs = [];
+    for (let i = 1; i <= folhas; i++) {
+      const qty = (i === folhas) ? lastQty : per;
+      logs.push(makeLogRecord(Object.assign({}, d, { quantidade: String(qty) }), '(na impressora)', `${i}/${folhas}`));
+    }
+    addLogMany(logs);
+    document.getElementById('field-lote-total').value = '';
+    document.getElementById('field-lote-folhas').value = '';
+    refreshLote();
+    showToast(`🖨 ${folhas} folhas enviadas para a ${getFilial()} — séries geradas lá`);
+  } catch (e) {
+    showToast('❌ Não foi possível enviar o lote: ' + e.message, '#e05a2b');
+  } finally {
+    if (btn) { btn.disabled = false; refreshLote(); }
   }
-  printDoc(`USO INTERNO — LOTE ${folhas}x — ${d.codigo}`, pages.join(''));
-  addLogMany(logs);
-  enviarRegistrosSP(logs);
-  document.getElementById('field-lote-total').value = '';
-  document.getElementById('field-lote-folhas').value = '';
-  refreshSerieDisplay();
-  refreshLote();
-  generateQR(d, peekSerie());
-  showToast(`🖨 Imprimindo ${folhas} folhas — séries ${primeira} a ${serie}`);
 }
 
 // ══════════════ POWER AUTOMATE → SHAREPOINT (Recebimento_Interno) ══════════════
