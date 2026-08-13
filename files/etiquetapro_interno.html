@@ -746,16 +746,27 @@ function refreshMPUI(d) {
   if (pl) pl.textContent = mp ? 'Peso Total' : 'Peso';
 }
 
-// ══════════════ QR CODE ══════════════
-// Ordem: Código;Descrição;Lote;Validade;Quantidade;Série;Peso;Nota;Fornecedor
-// Produtos MP: posição Quantidade = PESO TOTAL (qtd × kg/unid); posição Peso = KG por unidade
+// ══════════════ QR CODE — PADRÃO OFICIAL ══════════════
+// PA → codigo;descricao;lote;validade;quantidade;serie            (6 campos)
+// MP → codigo;descricao;lote;validade;pesoTotal;serie;embalagem   (7 campos)
+// Nota, fornecedor e demais dados continuam no formulário, na etiqueta
+// impressa, no histórico, no Excel e no SharePoint — só não entram no QR.
+// O formato antigo de 9 campos foi descontinuado.
+// qrSafe: tira ';' apenas do payload do QR (o cadastro e a tela seguem intactos),
+// para que a contagem de campos seja confiável e o QR grudado seja detectável.
+function qrSafe(v) { return String(v == null ? '' : v).replace(/;/g, ' ').trim(); }
 function buildQrString(d, serie) {
+  const campos = [qrSafe(d.codigo), qrSafe(d.descricao), qrSafe(d.lote), qrSafe(d.validade)];
   if (isMPCode(d.codigo)) {
-    const kgU = parseNum(d.peso);
-    const pTot = parseNum(d.quantidade) * kgU;
-    return [d.codigo, d.descricao, d.lote, d.validade, qrNum(pTot), serie, qrNum(kgU), d.nota, d.fornecedor].join(';');
+    const kgU = parseNum(d.peso);                  // embalagem: KG por unidade
+    campos.push(qrNum(parseNum(d.quantidade) * kgU));  // 5 = peso total
+    campos.push(qrSafe(serie));                        // 6 = série
+    campos.push(qrNum(kgU));                           // 7 = embalagem
+  } else {
+    campos.push(qrSafe(d.quantidade));                 // 5 = quantidade
+    campos.push(qrSafe(serie));                        // 6 = série
   }
-  return [d.codigo, d.descricao, d.lote, d.validade, d.quantidade, serie, d.peso, d.nota, d.fornecedor].join(';');
+  return campos.join(';');
 }
 function generateQR(d, serie) {
   const c = document.getElementById('qr-preview-container');
@@ -831,12 +842,12 @@ const FOLHA_CSS = `
     .emit strong{color:#555;font-weight:700}
     .pill{background:#1a1a2e;color:white;padding:7px 20px;border-radius:6px;font-size:15px;font-weight:800;letter-spacing:.5px}
     .info-block{padding:8px 16px;border-radius:0 10px 10px 0;display:flex;flex-direction:column;justify-content:center;min-height:0}
-    .info-block.produto{background:#f5f5f5;border-left:10px solid #1a1a2e;flex:1.15;flex-shrink:0;padding:8px 20px}
-    .body-grid{display:flex;gap:5mm;flex:1.75;min-height:0}
+    .info-block.produto{background:#f5f5f5;border-left:10px solid #1a1a2e;flex:1.45;flex-shrink:0;padding:8px 20px}
+    .body-grid{display:flex;gap:5mm;flex:2.2;min-height:0}
     .col-info{flex:1.7;display:flex;flex-direction:column;gap:3mm;min-width:0}
-    .info-block.lote{background:#e6f2ff;border-left:10px solid #2e86d4;flex:1.3}
+    .info-block.lote{background:#e6f2ff;border-left:10px solid #2e86d4;flex:1.5}
     .info-block.forn{background:#eefbf2;border-left:10px solid #1da868;flex:2.3}
-    .bottom-row{display:flex;gap:3mm;flex:.58;min-height:0;flex-shrink:0}
+    .bottom-row{display:flex;gap:3mm;flex:.45;min-height:0;flex-shrink:0}
     .bottom-row .card{flex:1;border-radius:8px}
     .block-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:3px;color:#555}
     .info-block.lote .block-label{color:#1a6aaa}
@@ -847,6 +858,9 @@ const FOLHA_CSS = `
     .card-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:800;margin-bottom:3px;color:#999}
     .card-val{font-weight:900;color:#1a1a2e;line-height:1;font-size:34px;word-break:break-word}
     .card.validade{background:#fff8e1;border:4px solid #f0a000;grid-column:span 2}
+    .card.pedido{grid-column:span 2;border:3px solid #ccc}
+    .card.pedido .card-lbl{font-size:11px;color:#888}
+    .card.pedido .card-val{font-size:40px}
     .card.validade .card-lbl{color:#b07800;font-size:11px}
     .card.validade .card-lbl::before{content:'⚠  '}
     .card.validade .card-val{font-size:58px}
@@ -854,12 +868,12 @@ const FOLHA_CSS = `
     .card.ptotal{background:#eefbf2;border:4px solid #1da868;grid-column:span 2}
     .card.ptotal .card-lbl{color:#0f7a4a;font-size:11px}
     .card.ptotal .val-sub{color:#0f7a4a}
-    .col-qr{flex:.85;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;border:2px dashed #ccc;border-radius:12px;padding:3mm;gap:2mm}
-    .qr-img{width:100%;max-width:70mm;max-height:70mm;aspect-ratio:1/1;object-fit:contain}
-    .qr-cod{font-family:'Courier New',monospace;font-size:15px;font-weight:900;letter-spacing:4px;color:#111}
-    .qr-serie{font-family:'Courier New',monospace;font-size:26px;font-weight:900;letter-spacing:3px;color:#0b3ea8;background:#eef3ff;border:2px solid #b9cdf5;border-radius:6px;padding:2px 12px;line-height:1.15;white-space:nowrap}
-    .qr-serie-lbl{font-size:8px;text-transform:uppercase;letter-spacing:2px;font-weight:800;color:#7d90b5;margin-top:1mm}
-    .qr-palete{font-size:13px;font-weight:900;color:#1a1a2e;background:#f0f0f0;border:1.5px solid #ccc;border-radius:6px;padding:3px 14px}`;
+    .col-qr{flex:.85;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;border:2px dashed #ccc;border-radius:12px;padding:3mm;gap:2mm;min-height:0;overflow:hidden}
+    .qr-img{width:100%;max-width:56mm;max-height:56mm;aspect-ratio:1/1;object-fit:contain;flex:0 1 auto;min-height:0}
+    .qr-cod{font-family:'Courier New',monospace;font-size:15px;font-weight:900;letter-spacing:4px;color:#111;flex-shrink:0}
+    .qr-serie{font-family:'Courier New',monospace;font-size:26px;font-weight:900;letter-spacing:3px;color:#0b3ea8;background:#eef3ff;border:2px solid #b9cdf5;border-radius:6px;padding:2px 12px;line-height:1.15;white-space:nowrap;flex-shrink:0}
+    .qr-serie-lbl{font-size:8px;text-transform:uppercase;letter-spacing:2px;font-weight:800;color:#7d90b5;margin-top:1mm;flex-shrink:0}
+    .qr-palete{font-size:13px;font-weight:900;color:#1a1a2e;background:#f0f0f0;border:1.5px solid #ccc;border-radius:6px;padding:3px 14px;flex-shrink:0}`;
 
 function buildFolhaPage(d, serie, qrImg, now, paleteLabel) {
   const mp = isMPCode(d.codigo);
@@ -885,10 +899,14 @@ function buildFolhaPage(d, serie, qrImg, now, paleteLabel) {
           <div class="card" style="grid-column:span 2"><div class="card-lbl">Código</div><div class="card-val" style="font-size:46px;white-space:nowrap">${d.codigo}</div></div>
           <div class="card"><div class="card-lbl">Quantidade</div><div class="card-val" style="font-size:44px">${d.quantidade}</div></div>
           <div class="card"><div class="card-lbl">Peso</div><div class="card-val" style="font-size:30px">${d.peso}</div></div>
-          <div class="card validade" style="grid-column:span 4">
+          <div class="card validade">
             <div class="card-lbl">Validade</div>
             <div class="card-val">${d.validade}</div>
             <div class="val-sub">Verificar antes do uso</div>
+          </div>
+          <div class="card pedido">
+            <div class="card-lbl">Nº Nota / Pedido</div>
+            <div class="card-val">${d.nota}</div>
           </div>
         </div>`;
   return `
@@ -932,10 +950,7 @@ function buildFolhaPage(d, serie, qrImg, now, paleteLabel) {
         <div class="block-label">Fornecedor</div>
         <div class="block-value" data-max="44" data-min="14" style="font-size:${(d.fornecedor.length<=20)?'38px':(d.fornecedor.length<=32)?'30px':'24px'}">${d.fornecedor}</div>
       </div>
-      <div class="card">
-        <div class="card-lbl">Nº Nota / Pedido</div>
-        <div class="card-val" style="font-size:30px">${d.nota}</div>
-      </div>
+      ${mp ? `<div class="card"><div class="card-lbl">Nº Nota / Pedido</div><div class="card-val" style="font-size:30px">${d.nota}</div></div>` : ''}
     </div>
   </div>`;
 }
