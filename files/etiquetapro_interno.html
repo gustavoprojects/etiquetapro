@@ -624,7 +624,6 @@ function previewFilialLogin() {
 // ══════════════ SÉRIE — gerada pela máquina da filial ══════════════
 // Este aparelho não numera. A máquina de impressão da filial gera a
 // série definitiva (ex.: L00000001) no momento da impressão.
-function getNextSerie() { return '(na impressora)'; }
 function peekSerie()    { return '(na impressora)'; }
 function refreshSerieDisplay() {
   // A numeração é da máquina da filial — o aparelho não conhece a série.
@@ -779,15 +778,6 @@ function generateQR(d, serie) {
     correctLevel: QRCode.CorrectLevel.M
   });
 }
-function qrDataUrl(text) {
-  if (typeof QRCode === 'undefined') { showToast('⚠ QR indisponível — sem internet? Recarregue (F5)', '#e05a2b'); return ''; }
-  const holder = document.getElementById('qr-hidden');
-  holder.innerHTML = '';
-  new QRCode(holder, { text, width: 800, height: 800, colorDark: '#111', colorLight: '#fff', correctLevel: QRCode.CorrectLevel.M });
-  const canvas = holder.querySelector('canvas');
-  return canvas ? canvas.toDataURL('image/png') : (holder.querySelector('img') || {}).src || '';
-}
-
 // ══════════════ PREVIEW ══════════════
 function calcDescFontSize(text) {
   const len = (text || '').length;
@@ -874,106 +864,6 @@ const FOLHA_CSS = `
     .qr-serie{font-family:'Courier New',monospace;font-size:26px;font-weight:900;letter-spacing:3px;color:#0b3ea8;background:#eef3ff;border:2px solid #b9cdf5;border-radius:6px;padding:2px 12px;line-height:1.15;white-space:nowrap;flex-shrink:0}
     .qr-serie-lbl{font-size:8px;text-transform:uppercase;letter-spacing:2px;font-weight:800;color:#7d90b5;margin-top:1mm;flex-shrink:0}
     .qr-palete{font-size:13px;font-weight:900;color:#1a1a2e;background:#f0f0f0;border:1.5px solid #ccc;border-radius:6px;padding:3px 14px;flex-shrink:0}`;
-
-function buildFolhaPage(d, serie, qrImg, now, paleteLabel) {
-  const mp = isMPCode(d.codigo);
-  const kgU = parseNum(d.peso);
-  const pTot = parseNum(d.quantidade) * kgU;
-  const cardsHtml = mp ? `
-        <div class="cards">
-          <div class="card" style="grid-column:span 2"><div class="card-lbl">Código</div><div class="card-val" style="font-size:46px;white-space:nowrap">${d.codigo}</div></div>
-          <div class="card"><div class="card-lbl">Quantidade (Vol)</div><div class="card-val" style="font-size:44px">${d.quantidade}</div></div>
-          <div class="card"><div class="card-lbl">Kg por Unid</div><div class="card-val" style="font-size:34px">${fmtNum(kgU)} KG</div></div>
-          <div class="card ptotal">
-            <div class="card-lbl">⚖ Peso Total</div>
-            <div class="card-val" style="font-size:52px">${fmtNum(pTot)} KG</div>
-            <div class="val-sub">${d.quantidade} vol × ${fmtNum(kgU)} kg</div>
-          </div>
-          <div class="card validade">
-            <div class="card-lbl">Validade</div>
-            <div class="card-val" style="font-size:52px">${d.validade}</div>
-            <div class="val-sub">Verificar antes do uso</div>
-          </div>
-        </div>` : `
-        <div class="cards">
-          <div class="card" style="grid-column:span 2"><div class="card-lbl">Código</div><div class="card-val" style="font-size:46px;white-space:nowrap">${d.codigo}</div></div>
-          <div class="card"><div class="card-lbl">Quantidade</div><div class="card-val" style="font-size:44px">${d.quantidade}</div></div>
-          <div class="card"><div class="card-lbl">Peso</div><div class="card-val" style="font-size:30px">${d.peso}</div></div>
-          <div class="card validade">
-            <div class="card-lbl">Validade</div>
-            <div class="card-val">${d.validade}</div>
-            <div class="val-sub">Verificar antes do uso</div>
-          </div>
-          <div class="card pedido">
-            <div class="card-lbl">Nº Nota / Pedido</div>
-            <div class="card-val">${d.nota}</div>
-          </div>
-        </div>`;
-  return `
-  <div class="page">
-    <div class="hdr">
-      <div class="logo-wrap">
-        <img class="logo-img" src="${LOGO_SRC}" alt="">
-        <div>
-          <div class="empresa-name">Reino Alimentos</div>
-          <div class="empresa-sub">Uso Interno — Recebimento / Estoque${getFilial() ? ' — ' + getFilial() : ''}</div>
-          <div class="empresa-autor">Gustavo.Lima / Reino Alimentos</div>
-        </div>
-      </div>
-      <div class="hdr-right">
-        <div class="emit">Emitido em <strong>${now}</strong><br>Nota/Pedido <strong>${d.nota}</strong></div>
-        <div class="pill">USO INTERNO</div>
-      </div>
-    </div>
-    <div class="info-block produto">
-      <div class="block-label">Produto</div>
-      <div class="block-value" data-max="130" data-min="32" style="font-size:${calcDescFontSize(d.descricao)}">${d.descricao}</div>
-    </div>
-    <div class="body-grid">
-      <div class="col-info">
-        <div class="info-block lote">
-          <div class="block-label">Lote</div>
-          <div class="block-value" data-max="110" data-min="28" style="font-size:${calcLoteFontSize(d.lote)}">${d.lote}</div>
-        </div>
-        ${cardsHtml}
-      </div>
-      <div class="col-qr">
-        <img class="qr-img" src="${qrImg}" alt="QR">
-        <div class="qr-serie-lbl">Série</div>
-        <div class="qr-serie">${serie}</div>
-        <div class="qr-cod">${d.codigo}</div>
-        ${paleteLabel ? `<div class="qr-palete">📦 ${paleteLabel}</div>` : ''}
-      </div>
-    </div>
-    <div class="bottom-row">
-      <div class="info-block forn">
-        <div class="block-label">Fornecedor</div>
-        <div class="block-value" data-max="44" data-min="14" style="font-size:${(d.fornecedor.length<=20)?'38px':(d.fornecedor.length<=32)?'30px':'24px'}">${d.fornecedor}</div>
-      </div>
-      ${mp ? `<div class="card"><div class="card-lbl">Nº Nota / Pedido</div><div class="card-val" style="font-size:30px">${d.nota}</div></div>` : ''}
-    </div>
-  </div>`;
-}
-
-function printDoc(title, pagesHtml) {
-  // Auto-ajuste: cada texto começa no tamanho máximo e reduz até caber no bloco
-  const fitJs = '<scr' + 'ipt>window.addEventListener("load",function(){' +
-    'document.querySelectorAll("[data-max]").forEach(function(el){' +
-      'var box=el.parentElement;var lbl=box.querySelector(".block-label");' +
-      'var avail=box.clientHeight-(lbl?lbl.offsetHeight:0)-12;' +
-      'if(avail<20)return;' +
-      'var s=parseInt(el.dataset.max),min=parseInt(el.dataset.min);' +
-      'el.style.lineHeight="1.12";el.style.fontSize=s+"px";' +
-      'while(s>min&&(el.scrollHeight>avail||el.scrollWidth>el.clientWidth+2)){s-=2;el.style.fontSize=s+"px"}' +
-    '});});</scr' + 'ipt>';
-  const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>${FOLHA_CSS}</style></head><body>${pagesHtml}${fitJs}</body></html>`;
-  const frame = document.getElementById('print-frame');
-  frame.srcdoc = docHtml;
-  frame.onload = () => {
-    setTimeout(() => { frame.contentWindow.focus(); frame.contentWindow.print(); }, 300);
-  };
-}
-
 // ══════════════════════════════════════════════════════════════
 //  ENVIO PARA A FILA — a máquina da filial numera e imprime
 //  A série NÃO é gerada aqui: quem numera é o computador da
@@ -1090,11 +980,6 @@ async function printLote() {
 // Fluxo: RECEBIMENTO_INTERNO — gatilho HTTP com schema JSON (CORS ok, testado)
 const PA_URL_RECEBIMENTO = 'https://default6142e716d6e94577a712609139a997.3f.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/28/workflows/b412be4954124d6a90a44a9d9457b248/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ltdsQ9DQaFhvBDJkhQii5DhHggXGOXHagXnbcdgG3uU';
 function spEnviarAtivo() { return localStorage.getItem('est-sp-enviar') !== '0'; }
-function saveSPToggle() {
-  const on = document.getElementById('sp-enviar').checked;
-  localStorage.setItem('est-sp-enviar', on ? '1' : '0');
-  showToast(on ? '☁ Registro no SharePoint ativado' : '🔕 Registro no SharePoint desativado', on ? '#3dd68c' : '#f0a000');
-}
 function spPayload(rec) {
   const mp = isMPCode(rec.codigo);
   return {
@@ -1114,25 +999,6 @@ function spPayload(rec) {
     usuario:     rec.usuario || '—'
   };
 }
-async function enviarRegistrosSP(records) {
-  if (!spEnviarAtivo()) return;
-  const st = document.getElementById('sp-status');
-  let ok = 0, falha = 0;
-  for (const rec of records) {
-    try {
-      const r = await fetch(PA_URL_RECEBIMENTO, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(spPayload(rec))
-      });
-      if (r.ok || r.status === 202) ok++; else falha++;
-    } catch(e) { falha++; }
-    if (st) st.textContent = `enviando ${ok + falha}/${records.length}...`;
-  }
-  if (st) st.textContent = falha ? `⚠ ${falha} falha(s)` : `✅ ${ok} registrado(s)`;
-  if (falha) showToast(`⚠ ${falha} registro(s) não enviados ao SharePoint — ficaram só no histórico local`, '#e05a2b');
-}
-
 // ══════════════ HISTÓRICO ══════════════
 function loadLog() { try { return JSON.parse(localStorage.getItem('est-log') || '[]'); } catch(e) { return []; } }
 function saveLog(l) { try { localStorage.setItem('est-log', JSON.stringify(l)); } catch(e){} }
