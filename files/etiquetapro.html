@@ -421,21 +421,6 @@ select option{background:var(--surface2)}
   </div>
 </div>
 
-<!-- MODAL IMPRESSORA -->
-<div class="modal-overlay" id="printer-modal-overlay">
-  <div class="modal" id="printer-modal" style="max-width:400px">
-    <h2 id="printer-modal-title">🖨 Configurar Impressora</h2>
-    <p class="sub" id="printer-modal-sub">Na janela de impressão que vai abrir, selecione a impressora desejada e clique em Imprimir. Ela será lembrada automaticamente nas próximas vezes.</p>
-    <div class="url-field">
-      <label>Nome da Impressora (para exibição)</label>
-      <input type="text" id="printer-name-input" placeholder="Ex: HP LaserJet / Impressora Sala" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:var(--bg2);color:var(--fg);outline:none">
-    </div>
-    <div class="modal-actions" style="margin-top:16px">
-      <button class="btn btn-secondary" style="width:auto;padding:10px 20px" onclick="closePrinterModal()">Cancelar</button>
-      <button class="btn btn-success" style="width:auto;padding:10px 24px" id="printer-modal-confirm-btn" onclick="confirmPrinterSetup()">🖨 Configurar e Imprimir</button>
-    </div>
-  </div>
-</div>
 
 <!-- LOGIN OVERLAY -->
 <div id="login-overlay" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99999;flex-direction:column;transition:opacity .4s">
@@ -613,10 +598,6 @@ select option{background:var(--surface2)}
     <!-- 03 Ações -->
     <div class="section-title">03 — Ações</div>
     <div class="actions">
-      <button class="btn btn-pa" id="btn-save" onclick="saveRecord()">
-        <svg width="16" height="16" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="white" fill-opacity=".2"/><path d="M8 22 L16 10 L24 22" stroke="white" stroke-width="2.5" stroke-linejoin="round" fill="none"/><path d="M11 18 L21 18" stroke="white" stroke-width="2.5"/></svg>
-        💾 Salvar Registro → SharePoint
-      </button>
 
       <!-- AUTO-PRINT TOGGLE -->
       <div id="autoprint-bar" style="background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
@@ -6327,11 +6308,6 @@ function getUsers() { return _usersCache || DEFAULT_USERS; }
 
 
 // ── Configuração JSONBin (admin) ──────────────────────────────────────────
-async function saveJsonBinConfig() {
-  // Credenciais embutidas — sem necessidade de configuração manual
-  showToast('✅ Nuvem configurada automaticamente!');
-}
-
 // Envia usuários do localStorage → JSONBin (nuvem)
 async function pushLocalUsersToCloud() {
   if (!getJBKey() || !getJBBin()) {
@@ -6383,33 +6359,6 @@ async function pullUsersFromCloud() {
     status.style.color = '#e05a2b';
   }
 }
-
-async function testJsonBinConfig() {
-  const key = getJBKey();
-  const bin = getJBBin();
-  const status = document.getElementById('jb-status');
-  if (!key || !bin) { status.textContent = '⚠ Configure a Master Key e o Bin ID primeiro.'; return; }
-  status.textContent = '⏳ Testando conexão...';
-  try {
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${bin}`, {
-      headers: { 'X-Master-Key': key, 'X-Bin-Meta': 'false' }
-    });
-    if (r.ok) {
-      const d = await r.json();
-      const rec = d.record || d;
-      const qtd = rec.users ? rec.users.length : '?';
-      status.innerHTML = `✅ Conexão OK! ${qtd} usuário(s) encontrado(s) na nuvem.`;
-      status.style.color = '#2ecc71';
-    } else {
-      status.textContent = `❌ Erro ${r.status} — verifique a Key e o Bin ID.`;
-      status.style.color = '#e05a2b';
-    }
-  } catch(e) {
-    status.textContent = '❌ Falha de conexão: ' + e.message;
-    status.style.color = '#e05a2b';
-  }
-}
-
 function loadJsonBinConfigUI() {
   const st = document.getElementById('jb-status');
   if (st) st.textContent = '🟢 Nuvem ativa — usuários sincronizados automaticamente.';
@@ -6759,7 +6708,6 @@ function buildPABody(job, printer, d, serie) {
   });
 }
 
-// Alias para saveRecord — usa job=SAVE (só registrar, sem impressão automática)
 function buildSeparacaoBody(d, serie) {
   return buildPABody('SAVE', '', d, serie);
 }
@@ -6790,22 +6738,6 @@ async function sendPrintJob(job) {
 }
 
 // Registra job na FilaImpressao (monitor de impressão) junto ao salvar
-async function registrarFilaImpressao(d, serie) {
-  // A impressora fica no config.json da máquina da filial — o aparelho manda
-  // vazio. Antes esta função exigia um nome gravado em printer_a4_name, que
-  // ninguém grava desde que a impressão saiu do aparelho: o resultado é que
-  // a impressão automática ao salvar nunca disparava, marcada ou não.
-  const autoPrintA4 = localStorage.getItem('autoprint_a4') === '1';
-  const autoPrintQR = localStorage.getItem('autoprint_qr') === '1';
-
-  if (autoPrintA4) {
-    try { await paFetch(PA_URL_PRINT, buildPABody('A4', '', d, serie)); } catch(e) { console.warn('Erro fila A4:', e); }
-  }
-  if (autoPrintQR) {
-    try { await paFetch(PA_URL_PRINT, buildPABody('QR', '', d, serie)); } catch(e) { console.warn('Erro fila QR:', e); }
-  }
-}
-
 function openSettings() {
   document.getElementById('cfg-pa-url').value = paUrl;
   // Indica se a URL vem do localStorage ou do código
@@ -7049,240 +6981,9 @@ function generateQR(d, serie) {
 // ═══════════════════════════════════════
 //  SALVAR → POWER AUTOMATE
 // ═══════════════════════════════════════
-async function saveRecord() {
-  if (!checkEstacao()) return;
-  const d = validate();
-  if (!d) return;
-  if (!currentSession) { showToast('⚠ Faça login primeiro!','#e05a2b'); return; }
-  if (!paUrl) { showToast('⚙️ Configure a URL do Power Automate primeiro!','#0078d4'); openSettings(); return; }
-  const btn = document.getElementById('btn-save');
-  btn.disabled = true; btn.innerHTML = '⏳ Enviando para SharePoint...';
-  const serie = peekSerie();
-
-  try {
-    // Envia job=SAVE → PA grava em Separação_Exp (condição no fluxo PA)
-    await paFetch(paUrl, buildPABody('SAVE', '', d, serie));
-
-    // Se auto-impressão ativa, envia jobs A4/QR para FilaImpressao
-    await registrarFilaImpressao(d, serie);
-
-    novoCiclo();   // próximo registro usa um ticket novo
-    d.serie = serie; d.timestamp = new Date().toLocaleString('pt-BR');
-    d.usuario = currentSession ? currentSession.nome : 'Desconhecido';
-    d.turno   = currentSession ? currentSession.turno : '—';
-    logData.push({...d}); saveLog(); renderLog(); populateUserFilter();
-    document.getElementById('pa-dot').className = 'pa-dot on';
-    showToast('✅ Enviado ao SharePoint — a série sai na impressão', '#3dd68c');
-    generateQR(d, peekSerie());
-  } catch(e) {
-    document.getElementById('pa-dot').className = 'pa-dot err';
-    showToast('❌ Erro ao enviar: ' + e.message, '#e05a2b');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '💾 Salvar Registro → SharePoint';
-  }
-}
-
 // ═══════════════════════════════════════
 //  IMPRESSÃO
 // ═══════════════════════════════════════
-function printA4() {
-  const d = getFormData();
-  if (d.codigo==='—') { showToast('⚠ Selecione um produto!','#e05a2b'); return; }
-  if (!currentFilial)  { showToast('⚠ Selecione a Filial/Destino!','#e05a2b'); return; }
-  const now = new Date().toLocaleString('pt-BR');
-  const serie = peekSerie();   // mesma série que a etiqueta QR usará no par A4+etiqueta
-  const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>A4 — ${d.codigo}</title>
-  <style>
-    @page{size:A4 landscape;margin:6mm}
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{width:100%;height:100%;font-family:Arial,sans-serif;background:white}
-    body{display:block;padding:0;margin:0}
-    .page{
-      background:white;
-      width:100%;height:100vh;
-      padding:6mm 8mm;
-      position:relative;overflow:hidden;
-      display:flex;flex-direction:column;gap:3mm;
-    }
-    .page::before{
-      content:'REINO ALIMENTOS';
-      position:absolute;top:50%;left:50%;
-      transform:translate(-50%,-50%) rotate(-25deg);
-      font-size:86px;font-weight:900;
-      color:rgba(0,0,0,.028);white-space:nowrap;
-      pointer-events:none;letter-spacing:6px;z-index:0
-    }
-    .page > *{position:relative;z-index:1}
-    .hdr{display:flex;align-items:center;justify-content:space-between;padding-bottom:4mm;border-bottom:2.5px solid #1a1a2e;flex-shrink:0;}
-    .logo-wrap{display:flex;align-items:center;gap:14px}
-    .logo-img{width:44px;height:44px;object-fit:contain}
-    .empresa-name{font-size:20px;font-weight:900;color:#1a1a2e}
-    .empresa-sub{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:2px}
-    .empresa-autor{font-size:8px;color:#bbb;margin-top:2px;font-style:italic}
-    .hdr-right{display:flex;align-items:center;gap:12px}
-    .emit{font-size:10px;color:#aaa;text-align:right;line-height:1.8}
-    .emit strong{color:#555;font-size:10px;font-weight:700}
-    .filial-pill{background:#1a1a2e;color:white;padding:7px 20px;border-radius:6px;font-size:15px;font-weight:800;letter-spacing:.5px}
-    .main-blocks{display:flex;flex-direction:column;gap:3mm;flex:1;min-height:0}
-    .info-block{padding:10px 18px;border-radius:0 10px 10px 0;display:flex;flex-direction:column;justify-content:center;flex:1;min-height:0;}
-    .info-block.produto{background:#f5f5f5;border-left:10px solid #1a1a2e}
-    .info-block.lote   {background:#e6f2ff;border-left:10px solid #2e86d4}
-    .block-label{font-size:11px;text-transform:uppercase;letter-spacing:2px;font-weight:800;margin-bottom:4px}
-    .info-block.produto .block-label{color:#555}
-    .info-block.lote    .block-label{color:#1a6aaa}
-    .block-value{font-size:clamp(70px,5.5vw,130px);font-weight:800;color:#1a1a2e;line-height:1.2;word-break:normal;overflow-wrap:break-word;font-family:Arial,sans-serif}
-    /* lote usa font-size inline via calcLoteFontSize() */
-    .bottom-row{display:grid;grid-template-columns:auto 2.5fr;gap:3mm;flex-shrink:0;}
-    .card{border-radius:8px;display:flex;flex-direction:column;justify-content:center}
-    .card.codigo-qty{background:#f0f0f0;border:2px solid #ddd;}
-    .card.validade  {background:#fff8e1;border:4px solid #f0a000;padding:8px 14px;}
-    .card-lbl{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:800;margin-bottom:3px;color:#aaa}
-    .card.validade .card-lbl{color:#b07800;font-size:11px}
-    .card-val{font-weight:900;color:#1a1a2e;line-height:1}
-    .codigo-block{padding:6px 12px;border-bottom:1px solid #ddd;}
-    .codigo-block .card-val{font-size:50px;color:#1a1a2e}
-    .qty-block{padding:6px 12px;}
-    .qty-block .card-val{font-size:70px}
-    .card.validade .card-val{font-size:190px;color:#1a1a2e}
-    .card.validade .card-lbl::before{content:'⚠  '}
-    .val-sub{font-size:9px;color:#c08000;margin-top:3px;font-weight:600}
-  </style></head><body>
-  <div class="page">
-    <div class="hdr">
-      <div class="logo-wrap">
-        <img class="logo-img" src="${LOGO_SRC}" alt="">
-        <div>
-          <div class="empresa-name">Reino Alimentos</div>
-          <div class="empresa-sub">Separação de Expedição</div>
-          <div class="empresa-autor">Gustavo.Lima / Reino Alimentos</div>
-
-        </div>
-      </div>
-      <div class="hdr-right">
-        <div class="emit">Emitido em <strong>${now}</strong><br>Série <strong style="font-family:'Courier New',monospace;font-size:12px;color:#0b3ea8;letter-spacing:1px">${serie}</strong></div>
-        <div class="filial-pill">${d.filial}</div>
-      </div>
-    </div>
-    <div class="main-blocks">
-      <div class="info-block produto">
-        <div class="block-label">Produto</div>
-        <div class="block-value" style="font-size:${calcDescFontSize(d.descricao)}">${d.descricao}</div>
-      </div>
-      <div class="info-block lote">
-        <div class="block-label">Lote</div>
-        <div class="block-value" style="font-size:${calcLoteFontSize(d.lote)}">${d.lote}</div>
-      </div>
-    </div>
-    <div class="bottom-row">
-      <div class="card codigo-qty">
-        <div class="codigo-block">
-          <div class="card-lbl">Código</div>
-          <div class="card-val">${d.codigo}</div>
-        </div>
-        <div class="qty-block">
-          <div class="card-lbl">Quantidade</div>
-          <div class="card-val">${d.quantidade}</div>
-        </div>
-      </div>
-      <div class="card validade">
-        <div class="card-lbl">Validade</div>
-        <div class="card-val">${d.validade}</div>
-        <div class="val-sub">Verificar antes do uso</div>
-      </div>
-    </div>
-  </div>
-  </body></html>`;
-  const frame = document.getElementById('print-frame-a4');
-  frame.srcdoc = docHtml;
-  frame.onload = () => {
-    frame.contentWindow.focus();
-    frame.contentWindow.print();
-  };
-  showToast('🖨 Imprimindo A4...');
-}
-
-
-function printLabel() {
-  showToast('🏭 A etiqueta é impressa na máquina da filial — use "Imprimir Etiqueta QR"', '#0078d4');
-}
-
-function _printLabelLocal_DESATIVADO() {
-  const d = getFormData();
-  if (d.codigo==='—')       { showToast('⚠ Selecione um produto!','#e05a2b'); return; }
-  if (d.lote==='—')         { showToast('⚠ Informe o Lote!','#e05a2b'); return; }
-  if (d.validade.length < 5){ showToast('⚠ Informe a Validade!','#e05a2b'); return; }
-  const serie = getNextSerie();
-  refreshSerieDisplay();
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&ecc=M&margin=2&data=${encodeURIComponent(buildQrString(d,serie))}`;
-  const docHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>Etiqueta — ${d.codigo}</title>
-  <style>
-    @page{size:100mm 150mm portrait;margin:0}
-    *{box-sizing:border-box;margin:0;padding:0}
-    html,body{width:100mm;height:150mm;background:white;font-family:Arial,sans-serif;overflow:hidden}
-    body{display:flex;justify-content:center;padding:0}
-    .label{background:white;width:100mm;height:150mm;display:flex;flex-direction:column;padding:3mm 3mm 3mm 3mm;}
-    .top{display:flex;align-items:center;justify-content:space-between;padding-bottom:2mm;border-bottom:0.6mm solid #1a1a2e;flex-shrink:0;height:14mm}
-    .top-logo{height:10mm;width:10mm;object-fit:contain}
-    .top-right{text-align:right;line-height:1.3}
-    .top-empresa{font-size:8pt;font-weight:900;color:#1a1a2e}
-    .top-filial{font-size:7pt;font-weight:700;color:#444}
-    .qr-section{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5mm 0 0}
-    .qr-img{width:84mm;height:84mm;display:block}
-    .qr-serie-lbl{font-size:5pt;text-transform:uppercase;letter-spacing:1.5px;font-weight:800;color:#8fa3c4;margin-top:1mm}
-    .qr-serie-big{font-family:'Courier New',monospace;font-size:15pt;font-weight:900;letter-spacing:2px;color:#0b3ea8;background:#eef3ff;border:0.5mm solid #b9cdf5;border-radius:1.5mm;padding:0.5mm 3mm;line-height:1.15;white-space:nowrap}
-    .cod{text-align:center;font-family:'Courier New',monospace;font-size:7.5pt;font-weight:900;letter-spacing:3px;color:#111;padding:1.5mm 0;border-top:0.3mm solid #ddd;border-bottom:0.3mm solid #ddd;width:100%;margin-top:1.5mm}
-    .info{display:grid;grid-template-columns:1fr 1fr;gap:1mm 3mm;flex-shrink:0;padding-top:1.5mm}
-    .full{grid-column:1/-1}
-    .f{display:flex;flex-direction:column;gap:.3mm}
-    .lbl{font-size:5pt;text-transform:uppercase;letter-spacing:.8px;color:#aaa;font-weight:700}
-    .val{font-size:7.5pt;font-weight:800;color:#111;line-height:1.2;word-break:break-word}
-    .val-box{border:0.5mm solid #e8a000;border-radius:1.5mm;background:#fff8e1;padding:1mm 2mm;text-align:center}
-    .val-box .lbl{color:#c07800}
-    .val-box .val{font-size:20pt;font-weight:900;color:#b07800;line-height:1}
-    .serie{font-family:'Courier New',monospace;font-size:6pt;color:#0055cc;font-weight:700}
-  </style></head><body>
-  <div class="label">
-    <div class="top">
-      <img class="top-logo" src="${LOGO_SRC}" alt="">
-      <div class="top-right">
-        <div class="top-empresa">REINO ALIMENTOS</div>
-        <div class="top-filial">${d.filial}</div>
-      </div>
-    </div>
-    <div class="qr-section">
-      <img class="qr-img" src="${qrUrl}" alt="QR">
-      <div class="qr-serie-lbl">Série</div>
-      <div class="qr-serie-big">${serie}</div>
-      <div class="cod">${d.codigo}</div>
-    </div>
-    <div class="info">
-      <div class="f full"><div class="lbl">Produto</div><div class="val" style="font-size:7pt;line-height:1.25">${d.descricao}</div></div>
-      <div class="f full"><div class="lbl">Lote</div><div class="val" style="font-size:8.5pt">${d.lote}</div></div>
-      <div class="f">
-        <div class="lbl">Quantidade</div><div class="val" style="font-size:14pt">${d.quantidade}</div>
-      </div>
-      <div class="val-box">
-        <div class="lbl">⚠ Validade</div>
-        <div class="val">${d.validade}</div>
-      </div>
-    </div>
-  </div>
-  </body></html>`;
-  const frame = document.getElementById('print-frame-qr');
-  frame.srcdoc = docHtml;
-  frame.onload = () => {
-    setTimeout(() => {
-      frame.contentWindow.focus();
-      frame.contentWindow.print();
-    }, 600);
-  };
-  generateQR(d, peekSerie());
-  showToast(`🏷 Etiqueta QR — Série #${serie}`);
-}
-
 async function printAll() {
   if (!checkEstacao()) return;
   const d = getFormData();
@@ -7449,78 +7150,10 @@ function updateAutoPrintStatus() {
   else          el.textContent = '✅ A4 + QR (padrão)';
 }
 // ─────────────────────────────────────────────────────────────────────
-
-// ── SISTEMA DE MEMÓRIA DE IMPRESSORA ────────────────────────────────
-let _printerPendingType = null; // 'a4' ou 'qr'
-
-function loadPrinterLabels() {
-  // As impressoras ficam na máquina da filial — o aparelho não configura nada
-  const a4 = document.getElementById('printer-a4-label');
-  const qr = document.getElementById('printer-qr-label');
-  if (a4) a4.textContent = '🏭 Impressora da filial';
-  if (qr) qr.textContent = '🏭 Impressora da filial';
-}
-
-
-function openPrinterModal(type, isReconfig = false) {
-  _printerPendingType = type;
-  const label = type === 'a4' ? 'A4' : 'QR / Etiqueta';
-  const saved = localStorage.getItem(`printer_${type}_name`) || '';
-  document.getElementById('printer-modal-title').textContent = isReconfig
-    ? `⚙️ Reconfigurar Impressora ${label}`
-    : `🖨 Configurar Impressora ${label}`;
-  document.getElementById('printer-modal-sub').textContent = isReconfig
-    ? `Altere o nome e reimprima para vincular a nova impressora ${label}.`
-    : `Na janela de impressão que vai abrir, selecione a impressora para ${label} e clique em Imprimir. Ela ficará gravada para as próximas vezes.`;
-  document.getElementById('printer-modal-confirm-btn').textContent = isReconfig
-    ? '⚙️ Salvar e Imprimir'
-    : '🖨 Configurar e Imprimir';
-  document.getElementById('printer-name-input').value = saved;
-  document.getElementById('printer-modal-overlay').classList.add('open');
-  setTimeout(() => document.getElementById('printer-name-input').focus(), 100);
-}
-
-function closePrinterModal() {
-  document.getElementById('printer-modal-overlay').classList.remove('open');
-  _printerPendingType = null;
-}
-
-function confirmPrinterSetup() {
-  const name = document.getElementById('printer-name-input').value.trim();
-  if (!name) {
-    document.getElementById('printer-name-input').style.borderColor = '#e05a2b';
-    document.getElementById('printer-name-input').focus();
-    return;
-  }
-  document.getElementById('printer-name-input').style.borderColor = '';
-  localStorage.setItem(`printer_${_printerPendingType}_name`, name);
-  localStorage.setItem(`printer_${_printerPendingType}_configured`, '1');
-  loadPrinterLabels();
-  const type = _printerPendingType;
-  closePrinterModal();
-  // Dispara impressão silenciosa após configurar
-  if (type === 'a4') { sendPrintJob('A4'); }
-  else               { sendPrintJob('QR'); }
-}
-
 // O aparelho não escolhe impressora: usa as configuradas na máquina da filial
 function smartPrintA4() { return sendPrintJob('A4'); }
 
 function smartPrintQR() { return sendPrintJob('QR'); }
-
-function reconfigurePrinter(type) {
-  openPrinterModal(type, true);
-}
-
-document.getElementById('printer-modal-overlay').addEventListener('click', e => {
-  if (e.target === document.getElementById('printer-modal-overlay')) closePrinterModal();
-});
-
-document.getElementById('printer-name-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') confirmPrinterSetup();
-});
-
-loadPrinterLabels();
 updateAutoPrintStatus();
 // ─────────────────────────────────────────────────────────────────────
 
