@@ -620,7 +620,7 @@ select option{background:var(--surface2)}
 
       <!-- AUTO-PRINT TOGGLE -->
       <div id="autoprint-bar" style="background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:8px">
-        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">🖨 Impressão Automática ao Salvar</div>
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">🖨 O que imprimir <span style="text-transform:none;letter-spacing:0;font-weight:600">— nenhum marcado = imprime os dois</span></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;font-weight:600">
             <input type="checkbox" id="autoprint-a4" onchange="saveAutoPrintSettings()" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
@@ -6791,16 +6791,18 @@ async function sendPrintJob(job) {
 
 // Registra job na FilaImpressao (monitor de impressão) junto ao salvar
 async function registrarFilaImpressao(d, serie) {
-  const printerA4 = localStorage.getItem('printer_a4_name') || '';
-  const printerQR = localStorage.getItem('printer_qr_name') || '';
+  // A impressora fica no config.json da máquina da filial — o aparelho manda
+  // vazio. Antes esta função exigia um nome gravado em printer_a4_name, que
+  // ninguém grava desde que a impressão saiu do aparelho: o resultado é que
+  // a impressão automática ao salvar nunca disparava, marcada ou não.
   const autoPrintA4 = localStorage.getItem('autoprint_a4') === '1';
   const autoPrintQR = localStorage.getItem('autoprint_qr') === '1';
 
-  if (autoPrintA4 && printerA4) {
-    try { await paFetch(PA_URL_PRINT, buildPABody('A4', printerA4, d, serie)); } catch(e) { console.warn('Erro fila A4:', e); }
+  if (autoPrintA4) {
+    try { await paFetch(PA_URL_PRINT, buildPABody('A4', '', d, serie)); } catch(e) { console.warn('Erro fila A4:', e); }
   }
-  if (autoPrintQR && printerQR) {
-    try { await paFetch(PA_URL_PRINT, buildPABody('QR', printerQR, d, serie)); } catch(e) { console.warn('Erro fila QR:', e); }
+  if (autoPrintQR) {
+    try { await paFetch(PA_URL_PRINT, buildPABody('QR', '', d, serie)); } catch(e) { console.warn('Erro fila QR:', e); }
   }
 }
 
@@ -7288,9 +7290,38 @@ async function printAll() {
   if (!currentFilial)         { showToast('⚠ Selecione a Filial/Destino!','#e05a2b'); return; }
   if (d.lote==='—')           { showToast('⚠ Informe o Lote!','#e05a2b'); return; }
   if (d.validade.length < 5)  { showToast('⚠ Informe a Validade (MM/AA)!','#e05a2b'); return; }
-  // Vai para a fila — quem imprime e numera é a máquina da filial
-  await sendPrintJob('A4');
-  await sendPrintJob('QR');
+  if (!currentSession)        { showToast('⚠ Faça login primeiro!','#e05a2b'); return; }
+
+  // O MESMO ticket liga o registro às duas etiquetas: a máquina da filial
+  // troca o ticket pela série definitiva e grava de volta no registro.
+  const serie = getTicket();
+  try {
+    // 1) REGISTRO — é o job SAVE que faz o fluxo gravar no SharePoint.
+    //    Sem isto o registro nunca era criado, porque na operação ninguém
+    //    usava o botão "Salvar Registro" — só este.
+    await paFetch(paUrl, buildPABody('SAVE', '', d, serie));
+    document.getElementById('pa-dot').className = 'pa-dot on';
+
+    // 2) IMPRESSÃO — só o que estiver marcado. Se nenhum estiver marcado,
+    //    imprime os dois, que é como sempre funcionou (ninguém fica sem
+    //    etiqueta no meio do turno por causa de um checkbox esquecido).
+    const querA4 = localStorage.getItem('autoprint_a4') === '1';
+    const querQR = localStorage.getItem('autoprint_qr') === '1';
+    const ambos  = !querA4 && !querQR;
+    if (ambos || querA4) await sendPrintJob('A4');
+    if (ambos || querQR) await sendPrintJob('QR');
+
+    // 3) HISTÓRICO LOCAL — o mesmo que o botão Salvar já fazia
+    d.serie = serie; d.timestamp = new Date().toLocaleString('pt-BR');
+    d.usuario = currentSession ? currentSession.nome : 'Desconhecido';
+    d.turno   = currentSession ? currentSession.turno : '—';
+    logData.push({...d}); saveLog(); renderLog(); populateUserFilter();
+
+    novoCiclo();   // próximo item começa com um ticket novo
+  } catch (e) {
+    document.getElementById('pa-dot').className = 'pa-dot err';
+    showToast('❌ Erro ao registrar: ' + e.message, '#e05a2b');
+  }
 }
 
 // ═══════════════════════════════════════
@@ -7413,9 +7444,9 @@ function updateAutoPrintStatus() {
   document.getElementById('autoprint-qr').checked = qr;
   const el = document.getElementById('autoprint-status');
   if (a4 && qr) el.textContent = '✅ Imprime A4 + QR';
-  else if (a4)  el.textContent = '✅ Imprime A4';
-  else if (qr)  el.textContent = '✅ Imprime QR';
-  else          el.textContent = '⬜ Desativado';
+  else if (a4)  el.textContent = '✅ Só A4';
+  else if (qr)  el.textContent = '✅ Só Etiqueta QR';
+  else          el.textContent = '✅ A4 + QR (padrão)';
 }
 // ─────────────────────────────────────────────────────────────────────
 
