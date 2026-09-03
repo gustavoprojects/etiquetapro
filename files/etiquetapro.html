@@ -156,6 +156,11 @@ select{cursor:pointer}
 select option{background:var(--surface2)}
 
 /* Busca produto */
+.tipo-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tipo-chip{background:var(--surface2);border:1.5px solid var(--border);color:var(--muted);border-radius:999px;padding:5px 12px;font-family:inherit;font-size:11px;font-weight:600;letter-spacing:.3px;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.tipo-chip:hover{border-color:var(--accent);color:var(--text)}
+.tipo-chip.active{background:var(--accent);border-color:var(--accent);color:#0e0e12}
+.tipo-chip b{font-weight:700;opacity:.6;margin-left:3px}
 .search-wrap{position:relative;margin-bottom:16px}
 .search-wrap input{padding-left:36px}
 .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none}
@@ -542,6 +547,7 @@ select option{background:var(--surface2)}
 
     <!-- 02 Produto -->
     <div class="section-title">02 — Produto</div>
+    <div class="tipo-chips" id="tipo-chips"></div>
     <div class="search-wrap" style="margin-bottom:10px">
       <span class="search-icon">🔍</span>
       <input type="text" id="search-desc"
@@ -6435,6 +6441,7 @@ async function doLogin(){
   travarFilial(true);
 
   renderLog();
+  renderTipos();
   eprodCarregarNuvem(true);   // catálogo da nuvem em segundo plano
 }
 
@@ -6844,12 +6851,51 @@ function formatValidade(el) {
   el.value = v; updatePreview();
 }
 
+// Filtro por tipo (as 2 primeiras letras do código: PA, MP, VM, VD...).
+// Os tipos saem do próprio catálogo — quando entrar um código novo na lista
+// do SharePoint, o botão dele aparece sozinho.
+let _tipoSel = '';                       // '' = todos
+
+function tiposDisponiveis() {
+  const cont = {};
+  eprodGet().forEach(p => {
+    const t = String(p.codigo || '').slice(0, 2).toUpperCase();
+    if (/^[A-Z]{2}$/.test(t)) cont[t] = (cont[t] || 0) + 1;
+  });
+  return Object.keys(cont).sort().map(t => ({ tipo: t, qtd: cont[t] }));
+}
+
+function renderTipos() {
+  const box = document.getElementById('tipo-chips');
+  if (!box) return;
+  const tipos = tiposDisponiveis();
+  if (tipos.length < 2) { box.innerHTML = ''; return; }   // só um tipo: não precisa de seletor
+  if (_tipoSel && !tipos.some(t => t.tipo === _tipoSel)) _tipoSel = '';
+  box.innerHTML = [{ tipo: '', rotulo: 'Todos' }].concat(tipos).map(t =>
+    `<button type="button" class="tipo-chip${_tipoSel === t.tipo ? ' active' : ''}"
+      onmousedown="event.preventDefault();setTipo('${t.tipo}')">${t.rotulo || t.tipo}${t.qtd ? ' <b>' + t.qtd + '</b>' : ''}</button>`
+  ).join('');
+}
+
+function setTipo(t) {
+  _tipoSel = t;
+  renderTipos();
+  const inp = document.getElementById('search-desc');
+  inp.focus();
+  filterProducts(inp.value);
+}
+
 function filterProducts(val) {
   const dd = document.getElementById('dropdown');
-  if (!val || val.length < 2) { dd.classList.remove('show'); return; }
+  if (val == null) val = '';
+  // com um tipo escolhido a lista já abre sem digitar nada
+  if (val.length < (_tipoSel ? 0 : 2)) { dd.classList.remove('show'); return; }
   const norm = s => s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const q = norm(val);
-  const m = eprodGet().filter(p => norm(p.descricao).includes(q) || p.codigo.toUpperCase().includes(q)).slice(0,12);
+  const m = eprodGet()
+    .filter(p => !_tipoSel || String(p.codigo).toUpperCase().startsWith(_tipoSel))
+    .filter(p => !q || norm(p.descricao).includes(q) || p.codigo.toUpperCase().includes(q))
+    .slice(0,12);
   if (!m.length) {
     dd.innerHTML = '<div class="dropdown-item"><span class="di-desc" style="color:var(--muted)">Nenhum resultado</span></div>';
     dd.classList.add('show'); return;
@@ -6870,7 +6916,7 @@ function selectProduct(c, d) {
   document.getElementById('field-desc-val').value = d;
   hideDropdown(); updatePreview();
 }
-function showDropdown() { if(document.getElementById('search-desc').value.length>=2) filterProducts(document.getElementById('search-desc').value); }
+function showDropdown() { filterProducts(document.getElementById('search-desc').value); }
 function hideDropdown() { setTimeout(()=>document.getElementById('dropdown').classList.remove('show'), 150); }
 
 // ─── CLIENTE SEARCH ───────────────────────────────────────────────────────────
@@ -6976,6 +7022,12 @@ function buildQrString(d, serie) {
 function generateQR(d, serie) {
   const c = document.getElementById('qr-preview-container');
   c.innerHTML = '';
+  // se a biblioteca do QR não carregou (CDN fora do ar), avisa em vez de
+  // derrubar o restante da tela — mesma proteção que o Processo Interno tem
+  if (typeof QRCode === 'undefined') {
+    c.innerHTML = '<div style="font-size:10px;color:#999;text-align:center;padding:30px 10px">QR indisponível<br>verifique a internet<br>e recarregue (F5)</div>';
+    return;
+  }
   new QRCode(c, {
     text: buildQrString(d, serie) || 'EtiquetaPro',
     width:160, height:160,
@@ -7312,7 +7364,7 @@ async function eprodCarregarNuvem(silencioso) {
     arr.sort((a,b) => a.codigo.localeCompare(b.codigo));
     localStorage.setItem(EPROD_CACHE, JSON.stringify(arr));
     localStorage.setItem(EPROD_CACHE + '-em', new Date().toLocaleString('pt-BR'));
-    eprodRender();
+    eprodRender(); renderTipos();
     eprodStatus('☁ ' + arr.length + ' produtos — atualizado agora');
     if (!silencioso) showToast('☁ Catálogo atualizado: ' + arr.length + ' produtos', '#3dd68c');
     return true;
