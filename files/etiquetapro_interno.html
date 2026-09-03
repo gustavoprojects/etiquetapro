@@ -89,6 +89,11 @@ header{height:var(--header-h);background:color-mix(in srgb, var(--surface) 78%, 
 .row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
 /* ── BUSCA ── */
+.tipo-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tipo-chip{background:var(--surface2);border:1.5px solid var(--border);color:var(--muted);border-radius:999px;padding:5px 12px;font-family:inherit;font-size:11px;font-weight:600;letter-spacing:.3px;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
+.tipo-chip:hover{border-color:var(--accent);color:var(--text)}
+.tipo-chip.active{background:var(--accent);border-color:var(--accent);color:#0b0d14}
+.tipo-chip b{font-weight:700;opacity:.6;margin-left:3px}
 .search-wrap{position:relative;margin-bottom:12px}
 .search-wrap input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;color:var(--text);padding:13px 14px 13px 40px;font-family:inherit;font-size:14px;outline:none;transition:border-color .2s, box-shadow .2s}
 .search-wrap input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)}
@@ -268,6 +273,7 @@ textarea.bulk:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in
         <div class="sec-ico">📦</div>
         <div><h3>Produto</h3><small>Busque por código ou nome</small></div>
       </div>
+      <div class="tipo-chips" id="tipo-chips"></div>
       <div class="search-wrap">
         <span class="search-icon">🔍</span>
         <input type="text" id="search-desc" placeholder="Código ou nome do produto..." oninput="filterProducts(this.value)" onfocus="showDropdown()" onblur="hideDropdown()" autocomplete="off">
@@ -556,7 +562,7 @@ async function prodCarregarNuvem(silencioso) {
     arr.sort((a,b) => a.codigo.localeCompare(b.codigo));
     localStorage.setItem(PROD_CACHE, JSON.stringify(arr));
     localStorage.setItem(PROD_CACHE + '-em', new Date().toLocaleString('pt-BR'));
-    renderProdutos();
+    renderProdutos(); renderTipos();
     prodStatus('☁ ' + arr.length + ' produtos — atualizado agora');
     if (!silencioso) showToast('☁ Catálogo atualizado: ' + arr.length + ' produtos', '#3dd68c');
     return true;
@@ -636,7 +642,7 @@ async function doLogin() {
     document.getElementById('tabbtn-produtos').style.display = '';
     document.getElementById('btn-clear-log').style.display = '';
   }
-  renderLog(); renderProdutos(); updatePreview(); refreshEstacaoUI();
+  renderLog(); renderProdutos(); renderTipos(); updatePreview(); refreshEstacaoUI();
   prodCarregarNuvem(true);   // catálogo da nuvem em segundo plano
 }
 
@@ -697,12 +703,51 @@ function refreshSerieDisplay() {
 }
 
 // ══════════════ BUSCA DE PRODUTO ══════════════
+// Filtro por tipo (as 2 primeiras letras do código: PA, MP, VM, VD...).
+// Os tipos saem do próprio catálogo — quando entrar um código novo na lista
+// do SharePoint, o botão dele aparece sozinho.
+let _tipoSel = '';                       // '' = todos
+
+function tiposDisponiveis() {
+  const cont = {};
+  getProdutos().forEach(p => {
+    const t = String(p.codigo || '').slice(0, 2).toUpperCase();
+    if (/^[A-Z]{2}$/.test(t)) cont[t] = (cont[t] || 0) + 1;
+  });
+  return Object.keys(cont).sort().map(t => ({ tipo: t, qtd: cont[t] }));
+}
+
+function renderTipos() {
+  const box = document.getElementById('tipo-chips');
+  if (!box) return;
+  const tipos = tiposDisponiveis();
+  if (tipos.length < 2) { box.innerHTML = ''; return; }   // só um tipo: não precisa de seletor
+  if (_tipoSel && !tipos.some(t => t.tipo === _tipoSel)) _tipoSel = '';
+  box.innerHTML = [{ tipo: '', rotulo: 'Todos' }].concat(tipos).map(t =>
+    `<button type="button" class="tipo-chip${_tipoSel === t.tipo ? ' active' : ''}"
+      onmousedown="event.preventDefault();setTipo('${t.tipo}')">${t.rotulo || t.tipo}${t.qtd ? ' <b>' + t.qtd + '</b>' : ''}</button>`
+  ).join('');
+}
+
+function setTipo(t) {
+  _tipoSel = t;
+  renderTipos();
+  const inp = document.getElementById('search-desc');
+  inp.focus();
+  filterProducts(inp.value);
+}
+
 function filterProducts(val) {
   const dd = document.getElementById('dropdown');
-  if (!val || val.length < 2) { dd.classList.remove('show'); return; }
+  if (val == null) val = '';
+  // com um tipo escolhido a lista já abre sem digitar nada
+  if (val.length < (_tipoSel ? 0 : 2)) { dd.classList.remove('show'); return; }
   const norm = s => s.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const q = norm(val);
-  const m = getProdutos().filter(p => norm(p.descricao).includes(q) || p.codigo.toUpperCase().includes(q)).slice(0, 12);
+  const m = getProdutos()
+    .filter(p => !_tipoSel || String(p.codigo).toUpperCase().startsWith(_tipoSel))
+    .filter(p => !q || norm(p.descricao).includes(q) || p.codigo.toUpperCase().includes(q))
+    .slice(0, 12);
   if (!m.length) {
     dd.innerHTML = '<div class="dropdown-item"><span class="di-desc" style="color:var(--muted)">Nenhum resultado</span></div>';
     dd.classList.add('show'); return;
@@ -722,7 +767,7 @@ function selectProduct(c, d) {
   document.getElementById('field-desc-val').value = d;
   hideDropdown(); updatePreview();
 }
-function showDropdown() { if (document.getElementById('search-desc').value.length >= 2) filterProducts(document.getElementById('search-desc').value); }
+function showDropdown() { filterProducts(document.getElementById('search-desc').value); }
 function hideDropdown() { setTimeout(() => document.getElementById('dropdown').classList.remove('show'), 150); }
 
 // ══════════════ FORM ══════════════
