@@ -876,12 +876,25 @@ function generateQR(d, serie) {
   const c = document.getElementById('qr-preview-container');
   c.innerHTML = '';
   if (typeof QRCode === 'undefined') { c.innerHTML = '<div style="font-size:10px;color:#999;text-align:center;padding:30px 10px">QR indisponível<br>verifique a internet<br>e recarregue (F5)</div>'; return; }
-  new QRCode(c, {
-    text: buildQrString(d, serie) || 'EtiquetaPro',
-    width: 400, height: 400,
-    colorDark: '#111', colorLight: '#fff',
-    correctLevel: QRCode.CorrectLevel.M
-  });
+  // Sem produto escolhido o formulário está cheio de travessões (—). A
+  // biblioteca do QR não engole esse caractere e estoura ("code length
+  // overflow"), derrubando o restante do script. Nem geramos QR nesse caso.
+  if (!d.codigo || d.codigo === '—') {
+    c.innerHTML = '<div style="font-size:10px;color:#999;text-align:center;padding:30px 10px">selecione um produto<br>para ver o QR</div>';
+    return;
+  }
+  try {
+    new QRCode(c, {
+      text: buildQrString(d, serie) || 'EtiquetaPro',
+      width: 400, height: 400,
+      colorDark: '#111', colorLight: '#fff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch (e) {
+    // preview quebrado nunca pode parar o app inteiro
+    console.warn('preview do QR falhou:', e.message);
+    c.innerHTML = '<div style="font-size:10px;color:#999;text-align:center;padding:30px 10px">preview do QR<br>indisponível</div>';
+  }
 }
 // ══════════════ PREVIEW ══════════════
 function calcDescFontSize(text) {
