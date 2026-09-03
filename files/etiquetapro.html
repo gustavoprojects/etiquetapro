@@ -738,6 +738,11 @@ select option{background:var(--surface2)}
         </div>
 
         <div class="section-title">Catálogo (<span id="eprod-count">0</span> produtos)</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <button class="eprod-btn" style="width:auto;padding:7px 14px" onclick="eprodCarregarNuvem(false)">☁ Recarregar da nuvem</button>
+          <span id="eprod-sync-status" style="font-size:11px;color:var(--muted)"></span>
+        </div>
+        <div class="hint" style="margin-bottom:10px">O catálogo é o mesmo para todos os aparelhos e para o Processo Interno. O que você altera aqui vale para todo mundo.</div>
         <input class="eprod-input" type="text" id="eprod-filter" placeholder="🔍 Filtrar catálogo..." oninput="eprodRender()" style="margin-bottom:10px">
         <div style="overflow-x:auto;max-height:420px;overflow-y:auto">
           <table class="eprod-table">
@@ -6430,6 +6435,7 @@ async function doLogin(){
   travarFilial(true);
 
   renderLog();
+  eprodCarregarNuvem(true);   // catálogo da nuvem em segundo plano
 }
 
 // Trava o campo Filial do formulário — a filial vem do login para evitar
@@ -7260,17 +7266,72 @@ applyTheme();
 //  Catálogo em localStorage 'epro-produtos-custom';
 //  sem alterações, a busca usa o PRODUTOS original.
 // ═══════════════════════════════════════════════════════════════
+// ── CATÁLOGO NA NUVEM (lista Produtos do SharePoint) ─────────────
+// A lista é a fonte da verdade e vale para os dois apps. O aparelho
+// mantém uma cópia no localStorage para abrir rápido e continuar
+// funcionando sem internet.
+const PA_URL_PROD_LISTAR = 'https://default6142e716d6e94577a712609139a997.3f.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/22/workflows/627ebecc7ec74417bde8efd1635814e1/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ijLr8GafgDtexkgIYEp1niZMR7GxXk-MtULOozIfbnI';
+const PA_URL_PROD_SALVAR = 'https://default6142e716d6e94577a712609139a997.3f.environment.api.powerplatform.com:443/powerautomate/automations/direct/cu/15/workflows/037d35d570ea446c9fe510f421a8d7bd/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=1az4UcuPc9E4xUngeQLaGsrt6wn_qH46W8-5RyI5IlU';
+const EPROD_CACHE = 'epro-produtos-cloud';
+
 function eprodGet() {
-  try {
-    const p = JSON.parse(localStorage.getItem('epro-produtos-custom') || 'null');
-    if (Array.isArray(p) && p.length) return p;
-  } catch(e){}
+  // 1º a cópia da nuvem, 2º o catálogo local antigo, 3º o embutido no app
+  for (const chave of [EPROD_CACHE, 'epro-produtos-custom']) {
+    try {
+      const p = JSON.parse(localStorage.getItem(chave) || 'null');
+      if (Array.isArray(p) && p.length) return p;
+    } catch(e){}
+  }
   return PRODUTOS.slice();
 }
 function eprodSave(arr) {
   arr.sort((a,b)=>a.codigo.localeCompare(b.codigo));
-  localStorage.setItem('epro-produtos-custom', JSON.stringify(arr));
+  localStorage.setItem(EPROD_CACHE, JSON.stringify(arr));
   eprodRender();
+}
+
+function eprodStatus(txt) {
+  const el = document.getElementById('eprod-sync-status');
+  if (el) el.textContent = txt || '';
+}
+
+// Baixa o catálogo da lista. Roda no login e no botão de recarregar.
+async function eprodCarregarNuvem(silencioso) {
+  if (!silencioso) eprodStatus('⏳ baixando catálogo...');
+  try {
+    const r = await fetch(PA_URL_PROD_LISTAR, { method: 'POST' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    const bruto = Array.isArray(j) ? j : (j.value || []);
+    const arr = bruto.map(x => ({
+      codigo:    String(x.Codigo || '').trim().toUpperCase(),
+      descricao: String(x.Descricao || '').trim().toUpperCase(),
+      id:        x.ID || x.Id || 0
+    })).filter(p => p.codigo);
+    if (!arr.length) throw new Error('a lista voltou vazia');
+    arr.sort((a,b) => a.codigo.localeCompare(b.codigo));
+    localStorage.setItem(EPROD_CACHE, JSON.stringify(arr));
+    localStorage.setItem(EPROD_CACHE + '-em', new Date().toLocaleString('pt-BR'));
+    eprodRender();
+    eprodStatus('☁ ' + arr.length + ' produtos — atualizado agora');
+    if (!silencioso) showToast('☁ Catálogo atualizado: ' + arr.length + ' produtos', '#3dd68c');
+    return true;
+  } catch (e) {
+    const em = localStorage.getItem(EPROD_CACHE + '-em');
+    eprodStatus('⚠ sem conexão — usando a cópia local' + (em ? ' de ' + em : ''));
+    if (!silencioso) showToast('⚠ Não consegui baixar o catálogo: ' + e.message, '#e05a2b');
+    return false;
+  }
+}
+
+// Grava uma alteração na lista. acao = criar | editar | excluir
+async function eprodEnviarNuvem(acao, codigo, descricao, id) {
+  const r = await fetch(PA_URL_PROD_SALVAR, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ acao, codigo: codigo || '', descricao: descricao || '', id: id || 0 })
+  });
+  if (!(r.ok || r.status === 202)) throw new Error('HTTP ' + r.status);
 }
 function eprodIsAdmin() { return currentSession && currentSession.role === 'admin'; }
 let _eprodEditing = null;
@@ -7297,34 +7358,61 @@ function eprodEdit(codigo, desc) {
   document.getElementById('eprod-btn-save').textContent = '💾 Salvar Alteração';
   document.getElementById('eprod-desc').focus();
 }
-function eprodSaveProduto() {
+async function eprodSaveProduto() {
   if (!eprodIsAdmin()) { showToast('⚠ Apenas Admin!','#e05a2b'); return; }
   const codigo = document.getElementById('eprod-codigo').value.trim().toUpperCase();
   const desc   = document.getElementById('eprod-desc').value.trim().toUpperCase();
   if (!codigo || !desc) { showToast('⚠ Preencha código e descrição!','#e05a2b'); return; }
   const arr = eprodGet();
-  if (_eprodEditing) {
-    const i = arr.findIndex(p => p.codigo === _eprodEditing);
-    if (i >= 0) arr.splice(i,1);
+
+  // Já existe? Então é edição — e o id da lista é o que manda.
+  const existente = arr.find(p => p.codigo === codigo);
+  if (existente && !_eprodEditing) {
+    if (!confirm(`Código ${codigo} já existe (${existente.descricao}). Substituir?`)) return;
   }
-  const dupe = arr.findIndex(p => p.codigo === codigo);
-  if (dupe >= 0) {
-    if (!confirm(`Código ${codigo} já existe (${arr[dupe].descricao}). Substituir?`)) return;
-    arr.splice(dupe,1);
+
+  const btn = document.getElementById('eprod-btn-save');
+  const txtBtn = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Gravando na nuvem...'; }
+  try {
+    if (existente) {
+      await eprodEnviarNuvem('editar', codigo, desc, existente.id);
+      existente.descricao = desc;
+    } else {
+      await eprodEnviarNuvem('criar', codigo, desc, 0);
+      arr.push({ codigo, descricao: desc, id: 0 });   // id real vem na próxima sincronização
+    }
+    // se o código foi renomeado durante a edição, remove o antigo
+    if (_eprodEditing && _eprodEditing !== codigo) {
+      const ant = arr.find(p => p.codigo === _eprodEditing);
+      if (ant) {
+        await eprodEnviarNuvem('excluir', ant.codigo, '', ant.id);
+        arr.splice(arr.indexOf(ant), 1);
+      }
+    }
+    eprodSave(arr);
+    _eprodEditing = null;
+    document.getElementById('eprod-codigo').value = '';
+    document.getElementById('eprod-desc').value = '';
+    showToast(`✅ Produto ${codigo} salvo — vale para todos os aparelhos`);
+  } catch (e) {
+    showToast('❌ Não consegui gravar na nuvem: ' + e.message + ' — nada foi alterado', '#e05a2b');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '➕ Adicionar Produto'; }
   }
-  arr.push({ codigo, descricao: desc });
-  eprodSave(arr);
-  _eprodEditing = null;
-  document.getElementById('eprod-codigo').value = '';
-  document.getElementById('eprod-desc').value = '';
-  document.getElementById('eprod-btn-save').textContent = '➕ Adicionar Produto';
-  showToast(`✅ Produto ${codigo} salvo!`);
 }
-function eprodDelete(codigo) {
+async function eprodDelete(codigo) {
   if (!eprodIsAdmin()) { showToast('⚠ Apenas Admin!','#e05a2b'); return; }
-  if (!confirm(`Excluir o produto ${codigo} do catálogo?`)) return;
-  eprodSave(eprodGet().filter(p => p.codigo !== codigo));
-  showToast(`🗑 ${codigo} excluído`);
+  if (!confirm(`Excluir o produto ${codigo} do catálogo?\n\nEle sai para TODOS os aparelhos.`)) return;
+  const arr = eprodGet();
+  const p = arr.find(x => x.codigo === codigo);
+  try {
+    await eprodEnviarNuvem('excluir', codigo, '', p ? p.id : 0);
+    eprodSave(arr.filter(x => x.codigo !== codigo));
+    showToast(`🗑 ${codigo} excluído da nuvem`);
+  } catch (e) {
+    showToast('❌ Não consegui excluir na nuvem: ' + e.message, '#e05a2b');
+  }
 }
 function eprodBulkImport() {
   if (!eprodIsAdmin()) { showToast('⚠ Apenas Admin!','#e05a2b'); return; }
@@ -7333,6 +7421,7 @@ function eprodBulkImport() {
   const arr = eprodGet();
   const byCode = {}; arr.forEach(p => byCode[p.codigo] = p);
   let added = 0, updated = 0, skipped = 0;
+  const mexidos = [];                            // só o que a importação tocou
   txt.split(/\r?\n/).forEach(line => {
     line = line.trim();
     if (!line) return;
@@ -7342,12 +7431,36 @@ function eprodBulkImport() {
     const codigo = line.slice(0,idx).trim().toUpperCase();
     const desc   = line.slice(idx+1).trim().toUpperCase();
     if (!codigo || !desc) { skipped++; return; }
-    if (byCode[codigo]) { byCode[codigo].descricao = desc; updated++; }
-    else { const np = { codigo, descricao: desc }; byCode[codigo] = np; arr.push(np); added++; }
+    if (byCode[codigo]) {
+      if (byCode[codigo].descricao === desc) return;   // nada mudou, não gasta requisição
+      byCode[codigo].descricao = desc; updated++; mexidos.push(byCode[codigo]);
+    } else {
+      const np = { codigo, descricao: desc, id: 0 };
+      byCode[codigo] = np; arr.push(np); added++; mexidos.push(np);
+    }
   });
   eprodSave(arr);
   document.getElementById('eprod-bulk').value = '';
-  showToast(`📥 Importação: ${added} novos, ${updated} atualizados${skipped ? ', '+skipped+' ignorados' : ''}`);
+  showToast(`📥 ${added} novos, ${updated} atualizados${skipped ? ', '+skipped+' ignorados' : ''} — enviando para a nuvem...`);
+  eprodSincronizarPendentes(mexidos);
+}
+
+// Envia para a lista SÓ o que a importação criou ou alterou. Um por vez,
+// com progresso — o fluxo grava um item por chamada.
+async function eprodSincronizarPendentes(mexidos) {
+  if (!mexidos.length) { eprodStatus('nada a enviar — o catálogo já estava igual'); return; }
+  let ok = 0, falha = 0;
+  for (let i = 0; i < mexidos.length; i++) {
+    const p = mexidos[i];
+    try {
+      await eprodEnviarNuvem(p.id ? 'editar' : 'criar', p.codigo, p.descricao, p.id || 0);
+      ok++;
+    } catch (e) { falha++; }
+    eprodStatus(`⏳ enviando ${i + 1}/${mexidos.length}...`);
+  }
+  if (falha) showToast(`⚠ ${falha} de ${mexidos.length} não chegaram na nuvem — recarregue e importe de novo`, '#e05a2b');
+  else       showToast(`☁ ${ok} produto(s) gravados na nuvem`, '#3dd68c');
+  await eprodCarregarNuvem(true);                // recarrega para pegar os ids reais
 }
 function eprodExportBackup() {
   const blob = new Blob([JSON.stringify(eprodGet(), null, 1)], { type:'application/json' });
@@ -7375,10 +7488,10 @@ function eprodImportBackup(input) {
 }
 function eprodRestaurarBase() {
   if (!eprodIsAdmin()) { showToast('⚠ Apenas Admin!','#e05a2b'); return; }
-  if (!confirm('Descartar todas as alterações e voltar ao catálogo original?')) return;
+  if (!confirm('Descartar a cópia local e baixar o catálogo da nuvem de novo?')) return;
   localStorage.removeItem('epro-produtos-custom');
-  eprodRender();
-  showToast('↺ Catálogo original restaurado');
+  localStorage.removeItem(EPROD_CACHE);
+  eprodCarregarNuvem(false);
 }
 
 </script>
